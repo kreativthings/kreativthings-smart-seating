@@ -260,6 +260,7 @@ document.getElementById('guestquery').value='';renderGuest();
 const SB_URL='https://vqfdpyvnlmmqhlfqsewg.supabase.co';
 const SB_KEY='sb_publishable_lnNoEOYUygwA-FGMs5PqKQ_OlFEc9Of';
 let staffToken=null,staffGuests=[];
+let ktLastLoginSession=null;
 const staffStatus=t=>document.getElementById('staffStatus').textContent=t;
 function openStaffLogin(){document.getElementById('staffLogin').classList.remove('hidden');document.getElementById('staffLogin').scrollIntoView({behavior:'smooth'});}
 async function staffSignIn(){
@@ -269,13 +270,13 @@ async function staffSignIn(){
  try{
   const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j=await r.json();if(!r.ok||!j.access_token)throw Error(j.msg||j.error_description||j.message||'Login gagal');
-  staffToken=j.access_token;document.getElementById('staffPassword').value='';
+  staffToken=j.access_token;ktSaveSession(j);document.getElementById('staffPassword').value='';
   await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
   document.getElementById('guest').classList.remove('hidden');previewNotice.classList.add('hidden');renderGuest();
   await loadPublishedEventSettings();document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
  }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
 }
-function staffSignOut(){document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
+function staffSignOut(){ktClearSession();document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
 async function sbStaff(path,opts={}){
  if(!staffToken)throw Error('Silakan login kembali.');
  const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,...(opts.headers||{})}});
@@ -537,10 +538,56 @@ function adminBackToStaff(){
  document.getElementById('guest').classList.remove('hidden');
  document.getElementById('adminDashboard').scrollIntoView({behavior:'smooth'});
 }
+// Persist only the Supabase refresh token. Access tokens remain in memory.
+// On page reload, Supabase rotates the refresh token and issues a fresh access token.
+const KT_SESSION_KEY='kt-smart-seating-refresh-v1';
+let ktRefreshTimer=null;
+function ktClearSession(){
+ try{localStorage.removeItem(KT_SESSION_KEY)}catch(e){}
+ if(ktRefreshTimer){clearTimeout(ktRefreshTimer);ktRefreshTimer=null;}
+}
+function ktSaveSession(payload){
+ if(payload.refresh_token){try{localStorage.setItem(KT_SESSION_KEY,payload.refresh_token)}catch(e){}}
+ if(ktRefreshTimer)clearTimeout(ktRefreshTimer);
+ const seconds=Math.max(30,Number(payload.expires_in||3600)-120);
+ ktRefreshTimer=setTimeout(()=>ktRefreshSession(false),seconds*1000);
+}
+async function ktRefreshSession(restore=false){
+ let refreshToken;
+ try{refreshToken=localStorage.getItem(KT_SESSION_KEY)}catch(e){return;}
+ if(!refreshToken)return;
+ try{
+  const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+   method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+   body:JSON.stringify({refresh_token:refreshToken})
+  });
+  const j=await r.json();
+  if(!r.ok||!j.access_token||!j.refresh_token)throw Error('Sesi login sudah berakhir');
+  staffToken=j.access_token;
+  ktSaveSession(j);
+  if(restore){
+   await loadStaffGuests();
+   document.getElementById('staff').classList.remove('hidden');
+   document.getElementById('guest').classList.remove('hidden');
+   previewNotice.classList.add('hidden');renderGuest();
+   await loadPublishedEventSettings();
+   ktAdminRole=await ktGetAdminRole(staffToken);
+   ktAdminVisibility();
+   if(ktAdminRole){adminRenderSummary();adminRenderGuests();document.getElementById('adminDashboardStatus').textContent='Akun Admin terverifikasi.';}
+   staffStatus(ktAdminRole?'Sesi Admin dipulihkan.':'Sesi Crew dipulihkan.');
+  }
+ }catch(e){
+  // A transient network failure should not erase the refresh token.
+  if(String(e.message).includes('Sesi login')){ktClearSession();staffToken=null;ktAdminRole=false;ktAdminVisibility();}
+  if(restore)staffStatus('Tidak dapat memulihkan login. Silakan login kembali jika diperlukan.');
+ }
+}
 const ktOriginalSignIn=staffSignIn;
 staffSignIn=async function(){
  await ktOriginalSignIn();
  if(!staffToken){ktAdminRole=false;ktAdminVisibility();return;}
+ // Store refresh token from the successful password login, not just refresh responses.
+ if(ktLastLoginSession)ktSaveSession(ktLastLoginSession);
  try{
   ktAdminRole=await ktGetAdminRole(staffToken);
   ktAdminVisibility();
@@ -549,7 +596,7 @@ staffSignIn=async function(){
  }catch(e){ktAdminRole=false;ktAdminVisibility();staffStatus('Login berhasil, tetapi verifikasi Admin gagal: '+e.message);}
 };
 const ktOriginalSignOut=staffSignOut;
-staffSignOut=function(){ktOriginalSignOut();ktAdminRole=false;ktEditingGuestId=null;document.body.classList.remove('kt-admin-layout');document.getElementById('adminDashboard').classList.add('hidden');ktAdminVisibility();};
+staffSignOut=function(){ktClearSession();ktLastLoginSession=null;ktOriginalSignOut();ktAdminRole=false;ktEditingGuestId=null;document.body.classList.remove('kt-admin-layout');document.getElementById('adminDashboard').classList.add('hidden');ktAdminVisibility();};
 const ktOriginalLoadStaffGuests=loadStaffGuests;
 loadStaffGuests=async function(){await ktOriginalLoadStaffGuests();if(ktAdminRole){adminRenderSummary();adminRenderGuests();}};
 const ktOriginalOpenEventSettings=openEventSettings;
@@ -559,4 +606,5 @@ saveEventSettings=async function(){if(!ktAdminRole){alert('Hanya Admin yang bole
 </script><script>
 // Load shared event heading after the Supabase constants and functions exist.
 loadPublishedEventSettings();
+ktRefreshSession(true);
 </script></html>
