@@ -31,11 +31,23 @@
 // Untuk klien berikutnya, cukup ubah dua tulisan di bawah ini.
 const EVENT_CONFIG = {
   eventType: "Engagement",  // Contoh: "Wedding" atau "Engagement"
-  coupleNames: "Shanti & Canfeng"           // Isi contoh: "Daniel & Jessica"
+  coupleNames: ""           // Isi contoh: "Daniel & Jessica"
 };
 // === AKHIR PENGATURAN ACARA ===
-document.getElementById('eventWelcomeTitle').textContent = 'Welcome to Our ' + EVENT_CONFIG.eventType;
-document.getElementById('eventCoupleNames').textContent = EVENT_CONFIG.coupleNames;
+const EVENT_SETTINGS_KEY = 'kt-event-settings-local-v1';
+function readEventSettings(){
+  try {
+    const saved=JSON.parse(localStorage.getItem(EVENT_SETTINGS_KEY)||'null');
+    return saved && ['Wedding','Engagement'].includes(saved.eventType) && typeof saved.coupleNames==='string'
+      ? saved : EVENT_CONFIG;
+  } catch(e){return EVENT_CONFIG;}
+}
+function updateEventHeading(){
+  const config=readEventSettings();
+  document.getElementById('eventWelcomeTitle').textContent='Welcome to Our '+config.eventType;
+  document.getElementById('eventCoupleNames').textContent=config.coupleNames;
+}
+updateEventHeading();
 </script>
 <script>
 window.KT_INITIAL_GUESTS=[];
@@ -178,7 +190,40 @@ body{background:#faf6f0}
 #staffLogin{max-width:760px;margin:12px auto;padding:20px}#staffLogin.hidden{display:none!important}
 #staffLogin input{margin-bottom:10px}#staffStatus{margin:10px 0;color:#765a3e}
 </style>
-<div id="staffPortal"><button onclick="openStaffLogin()">Staff Login</button></div>
+<div id="staffPortal"><button id="eventSettingsButton" class="hidden" onclick="openEventSettings()">⚙ Pengaturan Acara</button> <button onclick="openStaffLogin()">Staff Login</button></div>
+<section id="eventSettings" class="panel hidden" style="max-width:760px;margin:12px auto;padding:20px">
+ <h2>Pengaturan Acara • Kreativthings</h2>
+ <p class="muted">Ubah judul dan nama pasangan tanpa mengedit HTML.</p>
+ <label for="settingEventType">Jenis acara</label>
+ <select id="settingEventType"><option value="Wedding">Wedding</option><option value="Engagement">Engagement</option></select>
+ <label for="settingCoupleNames">Nama pasangan</label>
+ <input id="settingCoupleNames" maxlength="120" placeholder="Contoh: Daniel & Jessica">
+ <div class="toolbar" style="margin-top:14px"><button class="primary" type="button" onclick="saveEventSettings()">Simpan & Preview</button><button type="button" onclick="document.getElementById('eventSettings').classList.add('hidden')">Tutup</button></div>
+ <p class="notice"><strong>Perhatian:</strong> versi ini hanya menyimpan pengaturan pada browser/perangkat ini. Perubahan belum terlihat pada HP tamu lain melalui QR. Untuk perubahan online serentak, diperlukan penyimpanan pengaturan di Supabase.</p>
+ <p id="eventSettingsStatus" role="status" class="muted"></p>
+</section>
+<script>
+function openEventSettings(){
+ if(!staffToken){openStaffLogin();staffStatus('Silakan login staf terlebih dahulu untuk membuka pengaturan acara.');return;}
+ const settings=readEventSettings();
+ document.getElementById('settingEventType').value=settings.eventType;
+ document.getElementById('settingCoupleNames').value=settings.coupleNames;
+ document.getElementById('eventSettingsStatus').textContent='';
+ document.getElementById('eventSettings').classList.remove('hidden');
+ document.getElementById('eventSettings').scrollIntoView({behavior:'smooth'});
+}
+function saveEventSettings(){
+ if(!staffToken){document.getElementById('eventSettingsStatus').textContent='Login staf diperlukan.';return;}
+ const eventType=document.getElementById('settingEventType').value;
+ const coupleNames=document.getElementById('settingCoupleNames').value.trim();
+ if(!['Wedding','Engagement'].includes(eventType)){return;}
+ try{
+   localStorage.setItem(EVENT_SETTINGS_KEY,JSON.stringify({eventType,coupleNames}));
+   updateEventHeading();
+   document.getElementById('eventSettingsStatus').textContent='Preview berhasil disimpan di perangkat ini. Belum terpublikasi untuk tamu lain.';
+ }catch(e){document.getElementById('eventSettingsStatus').textContent='Gagal menyimpan: '+e.message;}
+}
+</script>
 <section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
 <script>
 // Only demo guests are searchable publicly. Never put a full guest list in browser storage.
@@ -205,10 +250,10 @@ async function staffSignIn(){
   staffToken=j.access_token;document.getElementById('staffPassword').value='';
   await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
   document.getElementById('guest').classList.remove('hidden');previewNotice.classList.add('hidden');renderGuest();
-  staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
+  document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
  }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
 }
-function staffSignOut(){staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
+function staffSignOut(){document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
 async function sbStaff(path,opts={}){
  if(!staffToken)throw Error('Silakan login kembali.');
  const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,...(opts.headers||{})}});
