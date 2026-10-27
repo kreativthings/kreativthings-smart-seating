@@ -494,7 +494,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <h2>Admin Dashboard • Kreativthings</h2>
  <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Editor denah menyimpan draft dan publikasi secara online.</p>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="adminPax">0</strong></div></div>
- <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
+ <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
  <h2>Tambah Tamu Baru</h2>
  <p class="muted">Data akan disimpan online di Supabase dan dapat dicari oleh staf maupun tamu melalui QR.</p>
@@ -506,6 +506,18 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <div class="admin-actions"><button id="adminCreateButton" class="primary" onclick="adminCreateGuest()">Simpan Tamu Online</button><button onclick="adminCloseNewGuest()">Batal</button></div>
  <p id="adminNewStatus" role="status"></p>
 </div>
+ <div id="ktExcelImport" class="admin-editor hidden">
+ <h2>Import Excel Daftar Tamu</h2>
+ <p class="muted">Format: Nama Tamu / Grup, Kategori, Dewasa, Anak, Nomor Meja, Section. Data yang sudah ada tidak akan dihapus.</p>
+ <label for="ktExcelFile">Pilih file Excel (.xlsx atau .xls)</label>
+ <input id="ktExcelFile" type="file" accept=".xlsx,.xls" onchange="ktReadExcel(this)">
+ <p id="ktExcelInfo" role="status" class="muted"></p>
+ <div id="ktExcelPreview" style="overflow-x:auto;max-height:300px"></div>
+ <div class="toolbar" style="margin-top:12px">
+ <button id="ktExcelConfirm" class="primary" disabled onclick="ktImportExcel()">Konfirmasi Import Online</button>
+ <button onclick="document.getElementById('ktExcelImport').classList.add('hidden')">Tutup</button>
+ </div>
+ </div>
  <div id="adminGuestManager" class="hidden"><label for="adminSearch">Cari nama atau meja</label><input id="adminSearch" placeholder="Cari tamu..." oninput="adminRenderGuests()"><div id="adminGuestRows"></div><p class="notice">Perubahan nama, meja, dan pax akan disimpan ke Supabase hanya bila izin database Admin mengizinkan. Tombol check-in tetap tersedia di Staff Registration.</p></div>
  <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button></div><p id="adminEditStatus" role="status"></p></div>
  <p id="adminDashboardStatus" class="muted" role="status"></p>
@@ -755,3 +767,128 @@ async function ktPublishLayoutOnline(){
 ktLoadPublishedLayout();
 </script>
 </html>
+
+<script>
+// Excel import is admin-only. Uses the existing wedding_guests schema.
+let ktExcelRows=[];
+function ktOpenExcelImport(){
+ if(!staffToken||!ktAdminRole){alert('Login sebagai Admin terlebih dahulu.');return;}
+ document.getElementById('ktExcelImport').classList.remove('hidden');
+ document.getElementById('ktExcelImport').scrollIntoView({behavior:'smooth'});
+}
+async function ktLoadExcelReader(){
+ if(window.XLSX)return;
+ if(!window.ktXlsxLoader){
+  window.ktXlsxLoader=new Promise((resolve,reject)=>{
+   const script=document.createElement('script');
+   script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+   script.onload=()=>window.XLSX?resolve():reject(Error('Pembaca Excel tidak tersedia'));
+   script.onerror=()=>reject(Error('Gagal memuat pembaca Excel. Periksa internet.'));
+   document.head.appendChild(script);
+  });
+ }
+ return window.ktXlsxLoader;
+}
+function ktExcelNorm(v){return String(v??'').trim();}
+function ktExcelNumber(v){if(v===null||v===undefined||v==='')return 0;return Number(v);}
+function ktExcelSection(table,provided){
+ const t=published.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===String(table).toLowerCase());
+ return t?sectionRoute(t):(provided||null);
+}
+async function ktReadExcel(input){
+ const status=document.getElementById('ktExcelInfo');
+ const preview=document.getElementById('ktExcelPreview');
+ const btn=document.getElementById('ktExcelConfirm');
+ ktExcelRows=[];btn.disabled=true;preview.innerHTML='';
+ const file=input.files?.[0];if(!file)return;
+ status.textContent='Membaca Excel…';
+ try{
+  if(!/\.(xlsx|xls)$/i.test(file.name))throw Error('Pilih file .xlsx atau .xls');
+  await ktLoadExcelReader();
+  const bytes=await file.arrayBuffer();
+  const workbook=XLSX.read(bytes,{type:'array',cellDates:false});
+  const sheet=workbook.Sheets['Master Guest List']||workbook.Sheets[workbook.SheetNames[0]];
+  if(!sheet)throw Error('Sheet Excel tidak ditemukan.');
+  const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
+  const clean=v=>ktExcelNorm(v).toLowerCase().replace(/\s+/g,' ');
+  const headerIndex=matrix.findIndex(row=>row.some(v=>['nama tamu / grup','nama tamu','guest_name','nama undangan'].includes(clean(v))));
+  if(headerIndex<0)throw Error('Kolom Nama Tamu / Grup tidak ditemukan.');
+  const header=matrix[headerIndex].map(clean);
+  const index=(...keys)=>header.findIndex(h=>keys.includes(h));
+  const ni=index('nama tamu / grup','nama tamu','guest_name','nama undangan');
+  const ci=index('kategori','category');
+  const ai=index('dewasa','adult');
+  const ki=index('anak','children');
+  const pi=index('pax','jumlah pax');
+  const ti=index('nomor meja','meja','table_number');
+  const si=index('section');
+  const errors=[];
+  const parsed=[];
+  matrix.slice(headerIndex+1).forEach((cells,i)=>{
+   const name=ktExcelNorm(cells[ni]);
+   if(!name)return;
+   const adults=ai>=0?ktExcelNumber(cells[ai]):0;
+   const children=ki>=0?ktExcelNumber(cells[ki]):0;
+   const pax=pi>=0?ktExcelNumber(cells[pi]):adults+children;
+   const table=ti>=0?ktExcelNorm(cells[ti]):'';
+   const section=ktExcelSection(table,si>=0?ktExcelNorm(cells[si]):'');
+   if(!Number.isInteger(pax)||pax<1||!Number.isInteger(adults)||!Number.isInteger(children)||adults<0||children<0){
+    errors.push('Baris '+(headerIndex+i+2)+': jumlah pax tidak valid');return;
+   }
+   parsed.push({guest_name:name,category:ci>=0?ktExcelNorm(cells[ci])||'Regular':'Regular',pax,table_number:table||null,section,checked_in:false});
+  });
+  if(errors.length)throw Error(errors.slice(0,5).join('; '));
+  if(!parsed.length)throw Error('Tidak ada tamu yang dapat dibaca.');
+  if(parsed.length>1000)throw Error('Maksimal 1000 baris per import.');
+  // Duplicate names within the same Excel are highlighted and skipped.
+  const seen=new Set();
+  ktExcelRows=parsed.filter(r=>{const key=r.guest_name.toLocaleLowerCase('id');if(seen.has(key))return false;seen.add(key);return true;});
+  const duplicates=parsed.length-ktExcelRows.length;
+  status.textContent=ktExcelRows.length+' tamu siap diimport'+(duplicates?' • '+duplicates+' nama duplikat dalam file dilewati':'')+'. Data lama tidak akan dihapus.';
+  const table=document.createElement('table');
+  table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+  const head=document.createElement('tr');
+  for(const h of ['Nama','Kategori','Pax','Meja','Section']){const th=document.createElement('th');th.textContent=h;th.style.padding='8px';head.appendChild(th)}
+  table.appendChild(head);
+  for(const row of ktExcelRows.slice(0,12)){
+   const tr=document.createElement('tr');
+   for(const value of [row.guest_name,row.category,row.pax,row.table_number||'—',row.section||'—']){
+    const td=document.createElement('td');td.textContent=String(value);td.style.cssText='padding:7px;border-top:1px solid #eee';tr.appendChild(td);
+   }table.appendChild(tr);
+  }
+  preview.replaceChildren(table);
+  if(ktExcelRows.length>12)preview.insertAdjacentText('beforeend','Preview 12 dari '+ktExcelRows.length+' baris.');
+  btn.disabled=false;
+ }catch(e){status.textContent='Gagal membaca file: '+e.message;}
+}
+async function ktImportExcel(){
+ if(!staffToken||!ktAdminRole||!ktExcelRows.length)return;
+ const status=document.getElementById('ktExcelInfo'),btn=document.getElementById('ktExcelConfirm');
+ // Avoid overwriting any existing guest record; append only.
+ const existing=new Set(staffGuests.map(g=>String(g.guest_name||'').trim().toLocaleLowerCase('id')));
+ const fresh=ktExcelRows.filter(g=>!existing.has(g.guest_name.toLocaleLowerCase('id')));
+ if(!fresh.length){status.textContent='Semua nama sudah ada. Tidak ada data baru untuk diimport.';return;}
+ if(!confirm('Tambahkan '+fresh.length+' tamu baru ke Supabase? '+(ktExcelRows.length-fresh.length)+' nama yang sudah ada akan dilewati. Data lama tidak dihapus.'))return;
+ btn.disabled=true;
+ let completed=0;
+ try{
+  // Refresh expired session before write, rather than silently losing changes.
+  if(typeof ktRefreshSession==='function')await ktRefreshSession(false);
+  if(!staffToken)throw Error('Sesi Admin berakhir. Login ulang.');
+  for(let i=0;i<fresh.length;i+=25){
+   const batch=fresh.slice(i,i+25);
+   const result=await sbStaff('wedding_guests',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(batch)});
+   if(!Array.isArray(result)||result.length!==batch.length)throw Error('Konfirmasi penyimpanan batch tidak lengkap');
+   completed+=batch.length;
+   status.textContent='Tersimpan '+completed+' dari '+fresh.length+' tamu…';
+  }
+  await loadStaffGuests();
+  adminRenderSummary();adminRenderGuests();
+  status.textContent='Berhasil! '+completed+' tamu baru tersimpan online. '+(ktExcelRows.length-fresh.length)+' nama lama dilewati.';
+  ktExcelRows=[];document.getElementById('ktExcelFile').value='';
+ }catch(e){
+  status.textContent='Import berhenti setelah '+completed+' tamu. '+e.message+'. Jangan ulangi sebelum refresh daftar tamu agar tidak duplikat.';
+  try{await loadStaffGuests()}catch(_){}
+ }finally{btn.disabled=true;}
+}
+</script>
