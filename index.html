@@ -33,12 +33,12 @@
 <label>Ukuran objek (%)</label>
 <input id="ktObjectScale" type="range" min="50" max="200" step="5" value="100" oninput="ktPreviewTransform('scale',this.value)" onchange="ktCommitTransform('scale',this.value)">
 <small id="ktScaleValue">100%</small>
-<label>Rotasi (derajat)</label>
+<div id="ktDimensionProps"><label>Panjang (%)</label><input id="ktObjectWidth" type="range" min="50" max="300" step="5" value="100" oninput="ktPreviewDimension('widthScale',this.value)" onchange="ktCommitDimension('widthScale',this.value)"><small id="ktWidthValue">100%</small><label>Lebar (%)</label><input id="ktObjectHeight" type="range" min="40" max="250" step="5" value="100" oninput="ktPreviewDimension('heightScale',this.value)" onchange="ktCommitDimension('heightScale',this.value)"><small id="ktHeightValue">100%</small></div><label>Rotasi (derajat)</label>
 <input id="ktObjectRotate" type="range" min="-180" max="180" step="5" value="0" oninput="ktPreviewTransform('rotation',this.value)" onchange="ktCommitTransform('rotation',this.value)">
 <small id="ktRotationValue">0°</small>
 <div class="toolbar" style="margin-top:8px"><button type="button" onclick="ktResetTransform()">Reset Ukuran & Rotasi</button></div>
 <p class="muted" style="font-size:12px">Ukuran dan rotasi hanya mengubah tampilan objek, bukan kapasitas atau jalur tamu.</p>
-</div><div id="tableprops"><label>Kapasitas</label><input id="p-capacity" type="number" min="0" onchange="edit('capacity',Number(this.value))"><label>Section</label><select id="p-section" onchange="edit('section',this.value)"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select><label>Bentuk</label><select id="p-shape" onchange="edit('shape',this.value)"><option value="rect">Kotak / panjang</option><option value="round">Bulat</option></select></div><button style="margin-top:14px" onclick="removeSelected()">Hapus objek</button></div><hr><div id="stats" class="muted"></div><label>Cari meja</label><input id="locate" placeholder="55A" oninput="selectByNumber(this.value)"><p class="muted" style="font-size:12px">Entrance demo di kanan bawah. Rute yang ditampilkan hanya melalui koridor yang sudah ditentukan dan tidak bertabrakan dengan meja.</p></aside></div>
+</div><div id="tableprops"><label>Kapasitas</label><input id="p-capacity" type="number" min="0" onchange="edit('capacity',Number(this.value))"><label>Section</label><select id="p-section" onchange="edit('section',this.value)"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select><label>Bentuk</label><select id="p-shape" onchange="edit('shape',this.value)"><option value="rect">Kotak</option><option value="long">Persegi panjang</option><option value="round">Bulat</option></select></div><button style="margin-top:14px" onclick="removeSelected()">Hapus objek</button></div><hr><div id="stats" class="muted"></div><label>Cari meja</label><input id="locate" placeholder="55A" oninput="selectByNumber(this.value)"><p class="muted" style="font-size:12px">Entrance demo di kanan bawah. Rute yang ditampilkan hanya melalui koridor yang sudah ditentukan dan tidak bertabrakan dengan meja.</p></aside></div>
 <div id="guests" class="panel hidden"><h2>Guest Assignment</h2><p class="muted">Nama tamu dari dua file Excel sudah disiapkan. Nomor meja boleh kosong. Simpan backup secara rutin; data browser tidak otomatis tersinkron.</p><div class="two"><div><label>Nama tamu</label><input id="newname" placeholder="Nama undangan"></div><div><label>Nomor meja (opsional)</label><input id="newtable" placeholder="55A"></div><div><label>Jumlah pax (opsional)</label><input id="newpax" type="number" min="1" value="2"></div></div><div class="toolbar" style="margin-top:13px"><button class="primary" onclick="addGuest()">Tambah Tamu</button><button onclick="document.getElementById('csvfile').click()">Import CSV</button><input hidden id="csvfile" type="file" accept=".csv,text/csv" onchange="importCSV(event)"><button onclick="downloadCSV()">Export CSV</button></div><div id="guestrows"></div></div>
 <div id="staff" class="panel hidden"><h2>Staff Registration • Supabase</h2><div class="metrics"><div class="metric"><small>Undangan check-in</small><strong id="checked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="arrived">0</strong></div></div><label>Cari nama atau nomor meja</label><input id="staffquery" placeholder="Ketik nama / meja" oninput="renderStaff()"><div id="staffrows"></div><div class="notice">Data check-in staf tersimpan di Supabase setelah login.</div></div>
 <div id="guest" class="panel hidden guest-shell"><div class="guest-top"><div class="guest-brand">KREATIVTHINGS <span>SMART SEATING</span></div><div class="guest-ornament">✦</div><h2 id="eventWelcomeTitle">Welcome to Our Engagement</h2><div id="eventCoupleNames" class="event-couple-names"></div><p>Find your seat with ease</p></div><div class="guest-inner"><div class="guest-search-card"><label for="guestquery">CARI NAMA UNDANGAN</label><div class="guest-search-row"><input id="guestquery" type="search" autocomplete="off" placeholder="Nama depan atau belakang..." oninput="renderGuest()" onkeydown="if(event.key==='Enter')searchPublicGuest()"><button type="button" onclick="document.getElementById('guestquery').value='';renderGuest();document.getElementById('guestquery').focus()" aria-label="Hapus pencarian">✕</button></div><p class="guest-hint">Cukup ketik nama depan atau nama belakang (minimal 3 huruf), lalu tekan Cari Nama.</p><button type="button" class="guest-route-button" onclick="searchPublicGuest()">Cari Nama</button></div><div id="guestresult" aria-live="polite"></div><div id="guestmapbox" class="hidden"><div class="guest-map-title">Petunjuk arah dari Entrance</div><p style="font-size:12px;text-align:center;color:#806044">← Geser denah ke kiri atau kanan →</p><div class="guest-map-scroll"><svg id="viewmap" viewBox="0 0 1000 750"></svg></div><div class="notice">Garis hijau adalah rute simulasi. Meja 35 mengikuti koridor kiri Section B; F3 melalui Tangga 2 lalu lurus sebelum belok kiri. Jalur harus divalidasi langsung di venue sebelum digunakan untuk tamu.</div><button class="guest-back" onclick="document.getElementById('guestmapbox').classList.add('hidden');document.getElementById('guestquery').focus()">← Kembali ke hasil pencarian</button></div><p class="guest-footer">Need assistance? Please ask our Kreativthings crew.</p></div></div></div>
@@ -85,7 +85,24 @@ function draw(svg,data,highlight='',interactive=false){svg.replaceChildren();svg
 svg.append(node('path',{d:'M 12 8 H 920 V 78 H 884 V 170 H 850 V 275 H 825 V 340 H 820 V 346 H 600 V 347 H 365 V 337 H 145 L 130 326 H 12 Z',fill:'#f8d9dc',stroke:'#e96b83','stroke-width':3,'stroke-dasharray':'10 7','stroke-linejoin':'round'}));
 // Physical access points (not tables).
 for(const [x,label] of [[590,'Tangga 1 · F1/F2'],[360,'Tangga 2 · F3']]){svg.append(node('rect',{x:x-17,y:341,width:34,height:36,rx:4,fill:'#e6c58b',stroke:'#9c713c','stroke-width':2}));for(let j=0;j<3;j++)svg.append(node('line',{x1:x-10,y1:349+j*8,x2:x+9,y2:349+j*8,stroke:'#5e472a','stroke-width':2}));svg.append(node('text',{x,y:333,'font-size':12,'text-anchor':'middle',fill:'#6a482c','font-weight':'bold'},label))}
-svg.append(node('text',{x:935,y:695,'font-size':13,'text-anchor':'middle',fill:'#6a482c'},'ENTRANCE'));[['F3',250,235],['F2',475,175],['F1',660,235],['A',815,380],['B',650,525],['C',440,525],['D',260,525],['E',55,520]].forEach(([s,x,y])=>svg.append(node('text',{x,y,fill:'#d2c2ae','font-size':23,'font-weight':700,'text-anchor':'middle'},'SEC '+s)));data.forEach((o,i)=>{let g=node('g',{'data-i':i,class:interactive?'item'+(selected===i?' selected':''):''});let x=o.x*10,y=o.y*7.5,scale=Math.max(.5,Math.min(2,Number(o.scale)||1)),rotation=Number(o.rotation)||0;const shapeGroup=node('g',{transform:`translate(${x} ${y}) rotate(${rotation}) scale(${scale}) translate(${-x} ${-y})`});let active=o.kind==='table'&&String(o.id).toLowerCase()===String(highlight).toLowerCase();if(o.kind==='facility'){shapeGroup.append(node('rect',{x:x-42,y:y-16,width:84,height:32,rx:4,fill:'#c5e2e1',stroke:'#7b9f9c'}));g.append(shapeGroup);g.append(node('text',{x,y:y+4,'font-size':11,'text-anchor':'middle',fill:'#315b59'},o.id))}else{shapeGroup.append(o.shape==='round'?node('circle',{cx:x,cy:y,r:24,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1}):node('rect',{x:x-28,y:y-23,width:56,height:46,rx:2,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1}));g.append(shapeGroup);g.append(node('text',{x,y:y+3,'font-size':13,'text-anchor':'middle','font-weight':'bold',fill:'#403529'},o.id));g.append(node('text',{x,y:y+17,'font-size':10,'text-anchor':'middle',fill:'#6f665a'},String(o.capacity||0)))}svg.append(g);if(interactive){g.addEventListener('pointerdown',e=>{selected=i;const p=coord(e);drag={i,px:p.x,py:p.y,x:o.x,y:o.y,moved:false};svg.setPointerCapture(e.pointerId);showProps();draw(svg,objects,'',true)})}})}
+svg.append(node('text',{x:935,y:695,'font-size':13,'text-anchor':'middle',fill:'#6a482c'},'ENTRANCE'));[['F3',250,235],['F2',475,175],['F1',660,235],['A',815,380],['B',650,525],['C',440,525],['D',260,525],['E',55,520]].forEach(([s,x,y])=>svg.append(node('text',{x,y,fill:'#d2c2ae','font-size':23,'font-weight':700,'text-anchor':'middle'},'SEC '+s)));data.forEach((o,i)=>{let g=node('g',{'data-i':i,class:interactive?'item'+(selected===i?' selected':''):''});let x=o.x*10,y=o.y*7.5,scale=Math.max(.5,Math.min(2,Number(o.scale)||1)),rotation=Number(o.rotation)||0;
+ const ws=Math.max(.5,Math.min(3,Number(o.widthScale)||1)),hs=Math.max(.4,Math.min(2.5,Number(o.heightScale)||1));
+ const shapeGroup=node('g',{transform:`translate(${x} ${y}) rotate(${rotation}) scale(${scale*ws} ${scale*hs})`});
+ let active=o.kind==='table'&&String(o.id).toLowerCase()===String(highlight).toLowerCase();
+ if(o.kind==='facility'){
+  shapeGroup.append(node('rect',{x:-42,y:-16,width:84,height:32,rx:4,fill:'#c5e2e1',stroke:'#7b9f9c'}));
+  g.append(shapeGroup);
+  // Fasilitas: tulisan dapat berputar bersama kotak, namun tidak ikut terdistorsi.
+  const textGroup=node('g',{transform:`translate(${x} ${y}) rotate(${rotation})`});
+  textGroup.append(node('text',{x:0,y:4,'font-size':11,'text-anchor':'middle',fill:'#315b59'},o.id));g.append(textGroup);
+ }else{
+  const shape=o.shape==='round'?node('circle',{cx:0,cy:0,r:24,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1}):node('rect',{x:o.shape==='long'?-42:-28,y:o.shape==='long'?-19:-23,width:o.shape==='long'?84:56,height:o.shape==='long'?38:46,rx:2,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1});
+  shapeGroup.append(shape);g.append(shapeGroup);
+  // Nomor meja dan kapasitas selalu tegak walaupun meja dirotasi.
+  g.append(node('text',{x,y:y+3,'font-size':13,'text-anchor':'middle','font-weight':'bold',fill:'#403529'},o.id));
+  g.append(node('text',{x,y:y+17,'font-size':10,'text-anchor':'middle',fill:'#6f665a'},String(o.capacity||0)));
+ }
+ svg.append(g);if(interactive){g.addEventListener('pointerdown',e=>{selected=i;const p=coord(e);drag={i,px:p.x,py:p.y,x:o.x,y:o.y,moved:false};svg.setPointerCapture(e.pointerId);showProps();draw(svg,objects,'',true)})}})}
 // Admin-only viewport controls; these do not modify objects or route coordinates.
 const ktMapEl=document.getElementById('map');
 const ktView={x:0,y:0,w:1000,h:750};
@@ -156,11 +173,37 @@ function ktCommitTransform(key,value){
 }
 function ktResetTransform(){
  if(selected<0)return;
- snapshot();objects[selected].scale=1;objects[selected].rotation=0;
+ snapshot();objects[selected].scale=1;objects[selected].rotation=0;objects[selected].widthScale=1;objects[selected].heightScale=1;
  ktTransformOriginal=null;showProps();draw(document.getElementById('map'),objects,'',true);
 }
+let ktDimensionOriginal=null;
+function ktPreviewDimension(key,value){
+ if(selected<0)return;
+ const o=objects[selected],v=Number(value)/100;
+ if(!Number.isFinite(v))return;
+ if(!ktDimensionOriginal||ktDimensionOriginal.index!==selected||ktDimensionOriginal.key!==key)
+  ktDimensionOriginal={index:selected,key,old:o[key]};
+ o[key]=v;
+ document.getElementById(key==='widthScale'?'ktWidthValue':'ktHeightValue').textContent=value+'%';
+ draw(document.getElementById('map'),objects,'',true);
+}
+function ktCommitDimension(key,value){
+ if(selected<0)return;
+ const o=objects[selected],v=Number(value)/100;
+ if(!Number.isFinite(v))return;
+ if(ktDimensionOriginal&&ktDimensionOriginal.index===selected&&ktDimensionOriginal.key===key){
+  const old=ktDimensionOriginal.old;
+  if(old!==v){const previous=structuredClone(objects);if(old===undefined)delete previous[selected][key];else previous[selected][key]=old;history.push(JSON.stringify(previous));}
+ }else snapshot();
+ o[key]=v;ktDimensionOriginal=null;showProps();draw(document.getElementById('map'),objects,'',true);
+}
 function snapshot(){history.push(JSON.stringify(objects))}function showProps(){let o=objects[selected];document.getElementById('props').classList.toggle('hidden',!o);document.getElementById('noobj').classList.toggle('hidden',!!o);if(!o)return;for(const key of ['id','kind','capacity','section','shape'])document.getElementById('p-'+key).value=o[key]??'';document.getElementById('tableprops').classList.toggle('hidden',o.kind!=='table');
-document.getElementById('ktObjectScale').value=Math.round((Number(o.scale)||1)*100);
+document.getElementById('ktDimensionProps').classList.toggle('hidden',o.kind==='table'&&o.shape==='round');
+ document.getElementById('ktObjectWidth').value=Math.round((Number(o.widthScale)||1)*100);
+ document.getElementById('ktObjectHeight').value=Math.round((Number(o.heightScale)||1)*100);
+ document.getElementById('ktWidthValue').textContent=document.getElementById('ktObjectWidth').value+'%';
+ document.getElementById('ktHeightValue').textContent=document.getElementById('ktObjectHeight').value+'%';
+ document.getElementById('ktObjectScale').value=Math.round((Number(o.scale)||1)*100);
 document.getElementById('ktObjectRotate').value=Number(o.rotation)||0;
 document.getElementById('ktScaleValue').textContent=document.getElementById('ktObjectScale').value+'%';
 document.getElementById('ktRotationValue').textContent=document.getElementById('ktObjectRotate').value+'°'}function edit(k,v){if(selected<0)return;if(k==='id'&&objects.some((o,i)=>i!==selected&&o.kind===objects[selected].kind&&o.id===v)){alert('Nomor/nama sudah digunakan');showProps();return}snapshot();objects[selected][k]=v;showProps();draw(document.getElementById('map'),objects,'',true);stats()}function add(kind){snapshot();objects.push(kind==='table'?{id:'NEW'+Date.now().toString().slice(-5),kind,x:50,y:50,capacity:4,section:'A',shape:'round'}:{id:'New Facility',kind,x:50,y:50});selected=objects.length-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function removeSelected(){if(selected<0)return;snapshot();objects.splice(selected,1);selected=-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function undo(){if(!history.length)return;objects=JSON.parse(history.pop());selected=-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function save(){localStorage.setItem('kt4-draft',JSON.stringify(objects));savePathDraft();alert('Draft meja dan jalur tersimpan di browser ini')}function publish(){if(!confirm('Publish draft ke Guest View demo di browser ini?'))return;published=structuredClone(objects);localStorage.setItem('kt4-published',JSON.stringify(published));publishPath();save();alert('Published untuk demo lokal. Belum online atau tersinkron antar perangkat.')}function stats(){const t=objects.filter(o=>o.kind==='table');document.getElementById('stats').textContent=t.length+' meja • '+t.reduce((s,o)=>s+(Number(o.capacity)||0),0)+' kursi (PowerPoint menyebut 278, perlu verifikasi)'}function selectByNumber(s){let i=objects.findIndex(o=>o.kind==='table'&&String(o.id).toLowerCase()===s.trim().toLowerCase());if(i>=0){selected=i;draw(document.getElementById('map'),objects,'',true);showProps()}}
@@ -485,10 +528,15 @@ function showPublicTable(i){
 #adminDashboard .admin-row button{padding:8px}
 #adminDashboard .admin-editor{padding:15px;margin:12px 0;background:#faf7f3;border:1px solid #e7ddd1;border-radius:12px}
 body.kt-admin-layout header{display:flex!important}
-body.kt-admin-layout #admin{display:grid!important}
+body.kt-admin-layout header nav{display:flex!important}
+body.kt-admin-layout header nav button{pointer-events:auto!important}
+body.kt-admin-layout #admin.hidden{display:none!important}
+body.kt-admin-layout #guest.hidden,body.kt-admin-layout #staff.hidden{display:none!important}
+
+body.kt-admin-layout #admin:not(.hidden){display:grid!important}
 body.kt-admin-layout #guest,body.kt-admin-layout #staff{display:none!important}
 body.kt-admin-layout #staffPortal{display:none!important}
-@media(max-width:760px){body.kt-admin-layout #admin{display:block!important}#adminDashboard .admin-row{grid-template-columns:minmax(0,1fr) 80px}#adminDashboard .admin-row button{grid-column:2}}
+@media(max-width:760px){body.kt-admin-layout #admin:not(.hidden){display:block!important}#adminDashboard .admin-row{grid-template-columns:minmax(0,1fr) 80px}#adminDashboard .admin-row button{grid-column:2}}
 </style>
 <section id="adminDashboard" class="panel hidden">
  <h2>Admin Dashboard • Kreativthings</h2>
@@ -625,6 +673,32 @@ async function adminSaveGuest(){
   document.getElementById('adminDashboardStatus').textContent='Perubahan tamu berhasil disimpan online.';
  }catch(e){status.textContent='Gagal menyimpan: '+e.message;}
 }
+// Navigasi terpadu: setiap tombol membuka halaman yang benar, tanpa tab demo lama.
+function ktNavigate(page){
+ if(!staffToken){document.body.classList.remove('kt-admin-layout');openStaffLogin();return;}
+ if(page==='admin'){
+  if(!ktAdminRole){alert('Layout hanya untuk Admin.');return;}
+  adminOpenLayout();return;
+ }
+ document.body.classList.remove('kt-admin-layout');
+ document.getElementById('admin').classList.add('hidden');
+ document.getElementById('guest').classList.toggle('hidden',page!=='guest');
+ document.getElementById('staff').classList.toggle('hidden',page!=='staff');
+ document.getElementById('adminDashboard').classList.toggle('hidden',!ktAdminRole||page==='guest'||page==='staff');
+ if(page==='guests'){
+  if(!ktAdminRole){alert('Daftar Tamu Online hanya untuk Admin.');return;}
+  document.getElementById('adminDashboard').classList.remove('hidden');
+  adminShowGuests();
+ }else if(page==='staff'){renderLiveStaff();document.getElementById('staff').scrollIntoView({behavior:'smooth'});}
+ else if(page==='guest'){renderGuest();document.getElementById('guest').scrollIntoView({behavior:'smooth'});}
+}
+for(const [id,page] of [['tab-admin','admin'],['tab-guests','guests'],['tab-staff','staff'],['tab-guest','guest']]){
+ const btn=document.getElementById(id);if(btn)btn.onclick=()=>ktNavigate(page);
+}
+const ktBackButton=document.createElement('button');
+ktBackButton.type='button';ktBackButton.textContent='← Kembali ke Dashboard';
+ktBackButton.onclick=()=>adminBackToStaff();
+document.querySelector('#admin .toolbar').prepend(ktBackButton);
 function adminOpenLayout(){
  if(!staffToken||!ktAdminRole)return;
  document.body.classList.add('kt-admin-layout');
@@ -718,14 +792,7 @@ function ktLayoutPayload(){return objects.map(o=>({...o}));}
 function ktApplyPublishedLayout(rows){
  const value=rows?.[0]?.published_layout;
  if(!Array.isArray(value)||!value.length)return;
- const original=new Map(baseline.map(o=>[String(o.id),o]));
- published=baseline.map(o=>({...o}));
- for(const item of value){
-  const match=published.find(o=>String(o.id)===String(item.id)&&o.kind===item.kind);
-  if(match&&Number.isFinite(item.x)&&Number.isFinite(item.y)){
-   match.x=Math.max(0,Math.min(100,item.x));match.y=Math.max(0,Math.min(100,item.y));
-  }
- }
+ published=value.filter(o=>o&&typeof o.id==='string'&&['table','facility'].includes(o.kind)&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>({...o}));
 }
 async function ktLoadPublishedLayout(){
  try{
@@ -740,7 +807,8 @@ async function ktLoadLayoutDraft(){
   const rows=await sbStaff(KT_LAYOUT_TABLE+'&select=draft_layout,published_layout');
   if(rows?.[0]?.draft_layout&&Array.isArray(rows[0].draft_layout)){
    const saved=rows[0].draft_layout;
-   for(const item of saved){const target=objects.find(o=>String(o.id)===String(item.id)&&o.kind===item.kind);if(target&&Number.isFinite(item.x)&&Number.isFinite(item.y)){target.x=item.x;target.y=item.y;}}
+   objects=saved.filter(o=>o&&typeof o.id==='string'&&['table','facility'].includes(o.kind)&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>({...o}));
+   selected=-1;showProps();
    refreshMaps();
   }
  }catch(e){alert('Tidak dapat memuat draft online: '+e.message);}
