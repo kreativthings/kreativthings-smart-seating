@@ -34,20 +34,31 @@ const EVENT_CONFIG = {
   coupleNames: ""           // Isi contoh: "Daniel & Jessica"
 };
 // === AKHIR PENGATURAN ACARA ===
-const EVENT_SETTINGS_KEY = 'kt-event-settings-local-v1';
-function readEventSettings(){
-  try {
-    const saved=JSON.parse(localStorage.getItem(EVENT_SETTINGS_KEY)||'null');
-    return saved && ['Wedding','Engagement'].includes(saved.eventType) && typeof saved.coupleNames==='string'
-      ? saved : EVENT_CONFIG;
-  } catch(e){return EVENT_CONFIG;}
-}
+// Published settings are read from Supabase; no per-device override.
+let publishedEventSettings={...EVENT_CONFIG};
+function readEventSettings(){return publishedEventSettings;}
 function updateEventHeading(){
-  const config=readEventSettings();
-  document.getElementById('eventWelcomeTitle').textContent='Welcome to Our '+config.eventType;
-  document.getElementById('eventCoupleNames').textContent=config.coupleNames;
+ const config=readEventSettings();
+ document.getElementById('eventWelcomeTitle').textContent='Welcome to Our '+config.eventType;
+ document.getElementById('eventCoupleNames').textContent=config.coupleNames;
 }
 updateEventHeading();
+async function loadPublishedEventSettings(){
+ const status=document.getElementById('eventSettingsStatus');
+ try{
+  const r=await fetch(SB_URL+'/rest/v1/kt_event_settings?id=eq.1&select=event_type,couple_names',{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},cache:'no-store'});
+  if(!r.ok)throw Error('Supabase HTTP '+r.status);
+  const rows=await r.json();
+  if(!rows.length)throw Error('Pengaturan acara belum tersedia');
+  const row=rows[0];
+  if(!['Wedding','Engagement'].includes(row.event_type)||typeof row.couple_names!=='string')throw Error('Format pengaturan tidak valid');
+  publishedEventSettings={eventType:row.event_type,coupleNames:row.couple_names};
+  updateEventHeading();
+  if(status)status.textContent='Pengaturan online berhasil dimuat.';
+ }catch(e){
+  if(status)status.textContent='Pengaturan online belum tersedia: '+e.message+'. Hubungi admin untuk setup Supabase.';
+ }
+}
 </script>
 <script>
 window.KT_INITIAL_GUESTS=[];
@@ -198,13 +209,14 @@ body{background:#faf6f0}
  <select id="settingEventType"><option value="Wedding">Wedding</option><option value="Engagement">Engagement</option></select>
  <label for="settingCoupleNames">Nama pasangan</label>
  <input id="settingCoupleNames" maxlength="120" placeholder="Contoh: Daniel & Jessica">
- <div class="toolbar" style="margin-top:14px"><button class="primary" type="button" onclick="saveEventSettings()">Simpan & Preview</button><button type="button" onclick="document.getElementById('eventSettings').classList.add('hidden')">Tutup</button></div>
- <p class="notice"><strong>Perhatian:</strong> versi ini hanya menyimpan pengaturan pada browser/perangkat ini. Perubahan belum terlihat pada HP tamu lain melalui QR. Untuk perubahan online serentak, diperlukan penyimpanan pengaturan di Supabase.</p>
+ <div class="toolbar" style="margin-top:14px"><button class="primary" type="button" onclick="saveEventSettings()">Simpan & Publish Online</button><button type="button" onclick="document.getElementById('eventSettings').classList.add('hidden')">Tutup</button></div>
+ <p class="notice">Perubahan dipublikasikan ke Supabase dan akan terlihat saat tamu membuka atau memuat ulang halaman QR. Pastikan tabel pengaturan online sudah disiapkan oleh admin.</p>
  <p id="eventSettingsStatus" role="status" class="muted"></p>
 </section>
 <script>
-function openEventSettings(){
+async function openEventSettings(){
  if(!staffToken){openStaffLogin();staffStatus('Silakan login staf terlebih dahulu untuk membuka pengaturan acara.');return;}
+ await loadPublishedEventSettings();
  const settings=readEventSettings();
  document.getElementById('settingEventType').value=settings.eventType;
  document.getElementById('settingCoupleNames').value=settings.coupleNames;
@@ -212,17 +224,27 @@ function openEventSettings(){
  document.getElementById('eventSettings').classList.remove('hidden');
  document.getElementById('eventSettings').scrollIntoView({behavior:'smooth'});
 }
-function saveEventSettings(){
- if(!staffToken){document.getElementById('eventSettingsStatus').textContent='Login staf diperlukan.';return;}
+async function saveEventSettings(){
+ const status=document.getElementById('eventSettingsStatus');
+ if(!staffToken){status.textContent='Login staf diperlukan.';return;}
  const eventType=document.getElementById('settingEventType').value;
  const coupleNames=document.getElementById('settingCoupleNames').value.trim();
- if(!['Wedding','Engagement'].includes(eventType)){return;}
+ if(!['Wedding','Engagement'].includes(eventType)||!coupleNames){status.textContent='Pilih jenis acara dan isi nama pasangan.';return;}
+ if(!confirm('Publish '+eventType+' — '+coupleNames+' untuk SEMUA tamu yang membuka QR?'))return;
+ status.textContent='Sedang mempublikasikan…';
  try{
-   localStorage.setItem(EVENT_SETTINGS_KEY,JSON.stringify({eventType,coupleNames}));
-   updateEventHeading();
-   document.getElementById('eventSettingsStatus').textContent='Preview berhasil disimpan di perangkat ini. Belum terpublikasi untuk tamu lain.';
- }catch(e){document.getElementById('eventSettingsStatus').textContent='Gagal menyimpan: '+e.message;}
+  const r=await fetch(SB_URL+'/rest/v1/kt_event_settings?id=eq.1',{
+   method:'PATCH',headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,'Content-Type':'application/json',Prefer:'return=representation'},
+   body:JSON.stringify({event_type:eventType,couple_names:coupleNames})
+  });
+  if(!r.ok)throw Error('Supabase HTTP '+r.status+': '+(await r.text()).slice(0,160));
+  const rows=await r.json();
+  if(!rows.length)throw Error('Tidak ada data yang diperbarui. Periksa izin staf dan tabel pengaturan.');
+  publishedEventSettings={eventType,coupleNames};updateEventHeading();
+  status.textContent='Berhasil dipublish! Semua tamu akan melihat perubahan saat membuka atau refresh QR.';
+ }catch(e){status.textContent='Publish gagal: '+e.message;}
 }
+
 </script>
 <section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
 <script>
@@ -250,7 +272,7 @@ async function staffSignIn(){
   staffToken=j.access_token;document.getElementById('staffPassword').value='';
   await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
   document.getElementById('guest').classList.remove('hidden');previewNotice.classList.add('hidden');renderGuest();
-  document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
+  await loadPublishedEventSettings();document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
  }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
 }
 function staffSignOut(){document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
@@ -361,4 +383,127 @@ function showPublicTable(i){
  document.getElementById('showPublicRoute').onclick=()=>showGuestRoute(table);
 }
 
+</script>
+<style>
+#adminDashboard{max-width:760px;margin:12px auto;padding:20px}#adminDashboard.hidden{display:none!important}
+#adminDashboard .admin-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+#adminDashboard .admin-row{display:grid;grid-template-columns:minmax(0,1fr) 100px 70px;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid #eee3d6}
+#adminDashboard .admin-row small{display:block;margin-top:4px}
+#adminDashboard .admin-row button{padding:8px}
+#adminDashboard .admin-editor{padding:15px;margin:12px 0;background:#faf7f3;border:1px solid #e7ddd1;border-radius:12px}
+body.kt-admin-layout header{display:flex!important}
+body.kt-admin-layout #admin{display:grid!important}
+body.kt-admin-layout #guest,body.kt-admin-layout #staff{display:none!important}
+body.kt-admin-layout #staffPortal{display:none!important}
+@media(max-width:760px){body.kt-admin-layout #admin{display:block!important}#adminDashboard .admin-row{grid-template-columns:minmax(0,1fr) 80px}#adminDashboard .admin-row button{grid-column:2}}
+</style>
+<section id="adminDashboard" class="panel hidden">
+ <h2>Admin Dashboard • Kreativthings</h2>
+ <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Denah editor saat ini masih berupa draft lokal di browser, bukan publish online.</p>
+ <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="adminPax">0</strong></div></div>
+ <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenLayout()">Edit Denah (Lokal)</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
+ <div id="adminGuestManager" class="hidden"><label for="adminSearch">Cari nama atau meja</label><input id="adminSearch" placeholder="Cari tamu..." oninput="adminRenderGuests()"><div id="adminGuestRows"></div><p class="notice">Perubahan nama, meja, dan pax akan disimpan ke Supabase hanya bila izin database Admin mengizinkan. Tombol check-in tetap tersedia di Staff Registration.</p></div>
+ <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button></div><p id="adminEditStatus" role="status"></p></div>
+ <p id="adminDashboardStatus" class="muted" role="status"></p>
+</section>
+<script>
+// Admin role is read from Supabase Auth app_metadata, not a local toggle.
+// Supabase RLS remains the authority for all database writes.
+let ktAdminRole=false,ktEditingGuestId=null;
+async function ktGetAdminRole(token){
+ const r=await fetch(SB_URL+'/auth/v1/user',{headers:{apikey:SB_KEY,Authorization:'Bearer '+token}});
+ if(!r.ok)throw Error('Tidak bisa memverifikasi hak akses akun.');
+ const user=await r.json();
+ return user.app_metadata?.smart_seating_role==='admin';
+}
+function ktAdminVisibility(){
+ document.getElementById('adminDashboard').classList.toggle('hidden',!staffToken||!ktAdminRole);
+ document.getElementById('eventSettingsButton').classList.toggle('hidden',!staffToken||!ktAdminRole);
+ if(!ktAdminRole)document.getElementById('eventSettings').classList.add('hidden');
+}
+function adminRenderSummary(){
+ document.getElementById('adminTotal').textContent=staffGuests.length;
+ document.getElementById('adminChecked').textContent=staffGuests.filter(g=>g.checked_in).length;
+ document.getElementById('adminPax').textContent=staffGuests.filter(g=>g.checked_in).reduce((s,g)=>s+(Number(g.pax)||0),0);
+}
+function adminShowGuests(){
+ if(!staffToken||!ktAdminRole)return;
+ document.getElementById('adminGuestManager').classList.remove('hidden');
+ document.getElementById('adminGuestEditor').classList.add('hidden');
+ adminRenderGuests();
+ document.getElementById('adminGuestManager').scrollIntoView({behavior:'smooth'});
+}
+function adminRenderGuests(){
+ if(!ktAdminRole)return;
+ const q=document.getElementById('adminSearch').value.trim().toLowerCase();
+ const list=staffGuests.filter(g=>String(g.guest_name||'').toLowerCase().includes(q)||String(g.table_number||'').toLowerCase().includes(q));
+ document.getElementById('adminGuestRows').innerHTML=list.slice(0,100).map(g=>`<div class="admin-row"><div><b>${esc(g.guest_name)}</b><small>${esc(g.category||'')} · Meja ${esc(g.table_number||'-')} · ${Number(g.pax)||0} pax · ${g.checked_in?'Hadir':'Belum hadir'}</small></div><button data-id="${esc(g.id)}" onclick="adminEditGuest(this.dataset.id)">Edit</button></div>`).join('')||'<p class="muted">Tamu tidak ditemukan.</p>';
+ document.getElementById('adminDashboardStatus').textContent=list.length>100?'Menampilkan 100 dari '+list.length+' tamu. Gunakan pencarian untuk mempersempit.':'';
+}
+function adminEditGuest(id){
+ if(!staffToken||!ktAdminRole)return;
+ const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;
+ ktEditingGuestId=id;
+ document.getElementById('adminEditName').value=g.guest_name||'';
+ document.getElementById('adminEditTable').value=g.table_number||'';
+ document.getElementById('adminEditPax').value=g.pax??'';
+ document.getElementById('adminEditStatus').textContent='';
+ document.getElementById('adminGuestEditor').classList.remove('hidden');
+ document.getElementById('adminGuestEditor').scrollIntoView({behavior:'smooth'});
+}
+function adminCloseEditor(){ktEditingGuestId=null;document.getElementById('adminGuestEditor').classList.add('hidden');}
+async function adminSaveGuest(){
+ if(!staffToken||!ktAdminRole||ktEditingGuestId===null)return;
+ const name=document.getElementById('adminEditName').value.trim();
+ const table=document.getElementById('adminEditTable').value.trim();
+ const pax=Number(document.getElementById('adminEditPax').value);
+ const status=document.getElementById('adminEditStatus');
+ if(!name||!Number.isInteger(pax)||pax<1){status.textContent='Isi nama dan pax minimal 1.';return;}
+ if(!confirm('Simpan perubahan data undangan ini ke Supabase?'))return;
+ status.textContent='Menyimpan…';
+ try{
+  await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(ktEditingGuestId),{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({guest_name:name,table_number:table||null,pax})}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1)throw Error('Tidak ada data diperbarui. Periksa izin RLS Admin.');});
+  await loadStaffGuests();adminRenderSummary();adminRenderGuests();adminCloseEditor();
+  document.getElementById('adminDashboardStatus').textContent='Perubahan tamu berhasil disimpan online.';
+ }catch(e){status.textContent='Gagal menyimpan: '+e.message;}
+}
+function adminOpenLayout(){
+ if(!staffToken||!ktAdminRole)return;
+ document.body.classList.add('kt-admin-layout');
+ document.getElementById('adminDashboard').classList.add('hidden');
+ document.getElementById('guest').classList.add('hidden');
+ document.getElementById('admin').classList.remove('hidden');
+ document.getElementById('admin').scrollIntoView({behavior:'smooth'});
+ alert('Editor denah ini hanya menyimpan draft/publish demo di browser ini. Belum tersinkron online. Jalur meja yang sudah disetujui tidak diubah.');
+}
+function adminBackToStaff(){
+ document.body.classList.remove('kt-admin-layout');
+ document.getElementById('admin').classList.add('hidden');
+ document.getElementById('adminDashboard').classList.remove('hidden');
+ document.getElementById('staff').classList.remove('hidden');
+ document.getElementById('guest').classList.remove('hidden');
+ document.getElementById('adminDashboard').scrollIntoView({behavior:'smooth'});
+}
+const ktOriginalSignIn=staffSignIn;
+staffSignIn=async function(){
+ await ktOriginalSignIn();
+ if(!staffToken){ktAdminRole=false;ktAdminVisibility();return;}
+ try{
+  ktAdminRole=await ktGetAdminRole(staffToken);
+  ktAdminVisibility();
+  if(ktAdminRole){adminRenderSummary();document.getElementById('adminDashboardStatus').textContent='Akun Admin terverifikasi.';staffStatus('Login Admin berhasil. Dashboard tersedia di bawah.');}
+  else staffStatus('Login Crew berhasil. Akses Admin tidak tersedia.');
+ }catch(e){ktAdminRole=false;ktAdminVisibility();staffStatus('Login berhasil, tetapi verifikasi Admin gagal: '+e.message);}
+};
+const ktOriginalSignOut=staffSignOut;
+staffSignOut=function(){ktOriginalSignOut();ktAdminRole=false;ktEditingGuestId=null;document.body.classList.remove('kt-admin-layout');document.getElementById('adminDashboard').classList.add('hidden');ktAdminVisibility();};
+const ktOriginalLoadStaffGuests=loadStaffGuests;
+loadStaffGuests=async function(){await ktOriginalLoadStaffGuests();if(ktAdminRole){adminRenderSummary();adminRenderGuests();}};
+const ktOriginalOpenEventSettings=openEventSettings;
+openEventSettings=async function(){if(!staffToken){openStaffLogin();return;}if(!ktAdminRole){alert('Pengaturan acara hanya untuk Admin.');return;}await ktOriginalOpenEventSettings();};
+const ktOriginalSaveEventSettings=saveEventSettings;
+saveEventSettings=async function(){if(!ktAdminRole){alert('Hanya Admin yang boleh publish pengaturan acara.');return;}await ktOriginalSaveEventSettings();};
+</script><script>
+// Load shared event heading after the Supabase constants and functions exist.
+loadPublishedEventSettings();
 </script></html>
