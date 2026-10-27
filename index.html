@@ -1,0 +1,258 @@
+<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kreativthings Smart Seating — Staff & Guest</title><style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#332c25;background:#f8f5f0}*{box-sizing:border-box}body{margin:0}header{background:#fff;padding:18px 24px;border-bottom:1px solid #e9e0d6;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}h1{font-size:20px;margin:3px 0}h2{font-size:18px;margin:0 0 12px}.muted,small{color:#7a6c60}nav{display:flex;gap:7px;flex-wrap:wrap}button{cursor:pointer;border:1px solid #d4c6b5;background:white;color:#43382e;border-radius:9px;padding:10px 13px;font:inherit}button.active,button.primary{background:#65503e;color:white;border-color:#65503e}button:disabled{opacity:.5;cursor:default}input,select{width:100%;padding:10px;border:1px solid #d8cbbb;border-radius:8px;font:inherit;background:white}label{display:block;font-size:12px;margin:12px 0 5px;color:#77695b}.wrap{max-width:1280px;margin:auto;padding:18px}.panel{background:white;border:1px solid #e7ddd1;border-radius:15px;padding:18px}.grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:15px}.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}.hidden{display:none!important}#map,#viewmap{width:100%;border:1px solid #ddd2c4;border-radius:9px;touch-action:none;background:#fcfaf7}.item{cursor:grab}.item.selected rect,.item.selected circle{stroke:#bd873f;stroke-width:4}.pill{padding:5px 9px;border-radius:30px;background:#eee6db;font-size:12px}.result{padding:12px;border:1px solid #eadfd3;border-radius:10px;margin:9px 0;display:flex;justify-content:space-between;gap:10px;align-items:center}.result button{white-space:nowrap}.hero{text-align:center;padding:24px 10px}.hero h2{font-family:Georgia,serif;font-size:30px;font-weight:normal;color:#67503c}.notice{background:#f6efe4;border-radius:10px;padding:12px;margin:12px 0;font-size:13px}.metrics{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:15px}.metric{background:#f7f3ed;padding:12px;border-radius:9px;min-width:120px}.metric strong{display:block;font-size:22px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:10px}header{padding:13px}button{padding:9px}}
+</style><style>
+/* Guest-only visual refinement; existing routing logic is unchanged. */
+#guest{max-width:790px;margin:auto;border:0;background:linear-gradient(160deg,#fffdfb,#f5eee7);box-shadow:0 14px 45px #6c52301a;padding:clamp(18px,5vw,40px)}
+#guest .hero{padding:35px 10px 22px}#guest .hero small{letter-spacing:.25em;font-size:10px;color:#9a7958}
+#guest .hero h2{font-size:clamp(30px,7vw,46px);margin:14px 0 8px;color:#4e3d32}
+#guest .hero p{font-size:14px}#guest label{font-size:13px;font-weight:650;color:#655143}
+#guestquery{font-size:17px;border:1.5px solid #d7c7b6;padding:16px;border-radius:13px;outline:none}
+#guestquery:focus{border-color:#a57d51;box-shadow:0 0 0 3px #cda67a24}
+#guest .result{background:white;border:1px solid #e9dcd0;border-radius:13px;padding:15px;margin:10px 0}
+#guest .result button,#guest .guest-route-button{background:#876444;color:#fff;border:0;border-radius:11px;font-weight:650;padding:12px 16px}
+#guest .result button{font-size:13px}#guest .guest-seat{background:#fff;border:1px solid #e4d4c3;border-radius:16px;padding:22px;text-align:center;margin:16px 0}
+#guest .guest-seat h2{font-family:Georgia,serif;font-size:46px;color:#805d3d;margin:7px 0}
+#guest .guest-seat .guest-section{font-weight:700;color:#66513d}
+#guest .guest-route-button{width:100%;font-size:16px;margin:12px 0}
+#guest #guestmapbox{margin-top:18px}#guest #viewmap{background:#fff;border-radius:12px}
+#guest .guest-demo{font-size:12px;background:#f0e8dd;color:#79634e;padding:11px;border-radius:10px;margin:12px 0}
+@media(max-width:600px){#guest .result{align-items:flex-start}#guest .result button{max-width:125px}#guest .guest-seat h2{font-size:40px}}
+</style><style>
+/* Guest-only visual redesign; approved navigation functions remain unchanged. */
+.guest-shell{padding:0!important;overflow:hidden;border-color:#e8ded4!important}.guest-top{text-align:center;background:linear-gradient(145deg,#f9f5f0,#f0e6da);padding:46px 20px 34px;border-bottom:1px solid #e5d9ca}.guest-brand{font-family:Georgia,serif;font-size:15px;letter-spacing:.21em;color:#54402e}.guest-brand span{display:block;font:10px Inter,system-ui,sans-serif;letter-spacing:.32em;margin-top:7px;color:#987d65}.guest-ornament{font-size:21px;color:#b78c57;margin:19px 0 6px}.guest-top h2{font:normal clamp(28px,6vw,40px) Georgia,serif;color:#503c2c;margin:8px 0}.guest-top p{font-size:13px;letter-spacing:.08em;color:#8c7865;margin:0}.guest-inner{max-width:680px;margin:auto;padding:25px 20px 32px}.guest-search-card{padding:22px;border:1px solid #e9ded1;border-radius:16px;background:#fff}.guest-search-card label{font-weight:700;letter-spacing:.13em;color:#826b55;margin:0 0 12px}.guest-search-row{display:flex;align-items:center;border:1px solid #d6c7b7;border-radius:12px;overflow:hidden}.guest-search-row:focus-within{outline:2px solid #b99467;outline-offset:2px}.guest-search-row input{border:0!important;outline:0!important;min-width:0;flex:1;font-size:16px;padding:15px 13px}.guest-search-row button{border:0;border-radius:0;background:#f8f3ed;color:#8b745e;height:50px}.guest-hint{font-size:12px;color:#8b7c70;margin:11px 0}.guest-demo{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12px;color:#827262}.guest-demo button{font-size:12px;border:1px solid #e3d5c5;background:#faf7f2;padding:7px 10px;border-radius:20px}.guest-shell #guestresult{margin-top:18px}.guest-shell #guestresult .result{border-radius:13px;padding:15px;box-shadow:0 2px 9px #49352009}.guest-shell #guestresult .result button,.guest-shell .guest-route-button{background:#806044;color:white;border:0;padding:12px 16px;border-radius:10px}.guest-shell .guest-seat{text-align:center;background:#fffaf3;border:1px solid #e7d8c7;border-radius:18px;padding:26px 18px;margin-top:12px}.guest-shell .guest-seat h2{font-family:Georgia,serif;font-size:76px;line-height:1.1;margin:8px 0;color:#775334}.guest-shell .guest-section{font-size:17px;font-weight:600;color:#6b5440;margin-bottom:15px}.guest-map-title{font:normal 22px Georgia,serif;color:#644a35;margin:25px 0 12px;text-align:center}.guest-map-scroll{overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid #dfd3c5;background:#fcfaf7}.guest-map-scroll svg{width:1000px!important;min-width:1000px;max-width:none;display:block;touch-action:pan-x!important;pointer-events:none}.guest-back{width:100%;margin-top:8px}.guest-footer{text-align:center;font-size:12px;color:#988573;margin:28px 0 0}@media(max-width:600px){.guest-top{padding:34px 12px 27px}.guest-inner{padding:17px 12px 24px}.guest-search-card{padding:16px}.guest-shell #guestresult .result{align-items:center}.guest-shell #guestresult .result button{font-size:12px;padding:10px}.guest-shell .guest-seat h2{font-size:66px}}
+</style><header><div><small>KREATIVTHINGS • INTERNAL PROTOTYPE</small><h1>Smart Seating <span class="pill">Guest Preview v23</span></h1></div><nav><button id="tab-admin" class="active" onclick="tab('admin')">Layout Admin</button><button id="tab-guests" onclick="tab('guests')">Daftar Tamu</button><button id="tab-staff" onclick="tab('staff')">Staff Check-in</button><button id="tab-guest" onclick="tab('guest')">Guest View</button></nav></header>
+<div class="wrap"><div id="admin" class="grid"><section class="panel"><h2>Interactive Ballroom Layout</h2><div class="toolbar"><button onclick="add('table')">+ Meja</button><button onclick="add('facility')">+ Fasilitas</button><button onclick="undo()">Undo</button><button onclick="loadPresetRoutes()" class="primary">↳ Pasang Preset Jalur A–F</button><button id="pathmode" onclick="togglePathMode()">✎ Edit Jalur</button><button onclick="resetPath()">Reset Jalur</button><button onclick="save()">Save Draft</button><button class="primary" onclick="publish()">Publish ke Demo Guest</button><button onclick="downloadJSON()">Export Backup</button><button onclick="document.getElementById('jsonfile').click()">Import Backup</button><input hidden id="jsonfile" type="file" accept=".json" onchange="importBackup(event)"></div><div class="toolbar"><label style="margin:5px 0">Preview rute ke meja <input id="route-table" placeholder="55A" style="width:115px" oninput="refreshMaps()"></label><span id="route-status" class="pill">Jalur standar tersedia</span></div><svg id="map" viewBox="0 0 1000 750"></svg><p class="muted" style="font-size:12px">Jalur diperbarui berdasarkan koreksi garis merah. F1 dan F2 melalui Tangga 1 (antara meja 35 dan 55A), lurus sebelum dan sesudah tangga; F3 melalui Tangga 2 (antara meja 55 dan Cashier). Tangga 3 dihapus. Masukkan nomor meja untuk melihat rute. Ini rute referensi yang harus dicek terhadap kondisi venue, bukan jaminan bebas hambatan.</p><div class="notice">Draft tidak otomatis terlihat di Guest View. Klik Publish untuk memperbarui layout yang ditampilkan tamu pada browser ini. Posisi meja hasil transkripsi PowerPoint perlu diverifikasi.</div></section><aside class="panel"><h2>Pengaturan objek</h2><div id="noobj" class="muted">Tap meja atau fasilitas, lalu geser untuk memindahkannya.</div><div id="props" class="hidden"><label>Nomor meja / Nama fasilitas</label><input id="p-id" onchange="edit('id',this.value)"><label>Jenis</label><select id="p-kind" onchange="edit('kind',this.value)"><option value="table">Meja</option><option value="facility">Fasilitas</option></select><div id="tableprops"><label>Kapasitas</label><input id="p-capacity" type="number" min="0" onchange="edit('capacity',Number(this.value))"><label>Section</label><select id="p-section" onchange="edit('section',this.value)"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select><label>Bentuk</label><select id="p-shape" onchange="edit('shape',this.value)"><option value="rect">Kotak / panjang</option><option value="round">Bulat</option></select></div><button style="margin-top:14px" onclick="removeSelected()">Hapus objek</button></div><hr><div id="stats" class="muted"></div><label>Cari meja</label><input id="locate" placeholder="55A" oninput="selectByNumber(this.value)"><p class="muted" style="font-size:12px">Entrance demo di kanan bawah. Rute yang ditampilkan hanya melalui koridor yang sudah ditentukan dan tidak bertabrakan dengan meja.</p></aside></div>
+<div id="guests" class="panel hidden"><h2>Guest Assignment</h2><p class="muted">Nama tamu dari dua file Excel sudah disiapkan. Nomor meja boleh kosong. Simpan backup secara rutin; data browser tidak otomatis tersinkron.</p><div class="two"><div><label>Nama tamu</label><input id="newname" placeholder="Nama undangan"></div><div><label>Nomor meja (opsional)</label><input id="newtable" placeholder="55A"></div><div><label>Jumlah pax (opsional)</label><input id="newpax" type="number" min="1" value="2"></div></div><div class="toolbar" style="margin-top:13px"><button class="primary" onclick="addGuest()">Tambah Tamu</button><button onclick="document.getElementById('csvfile').click()">Import CSV</button><input hidden id="csvfile" type="file" accept=".csv,text/csv" onchange="importCSV(event)"><button onclick="downloadCSV()">Export CSV</button></div><div id="guestrows"></div></div>
+<div id="staff" class="panel hidden"><h2>Staff Registration • Supabase</h2><div class="metrics"><div class="metric"><small>Undangan check-in</small><strong id="checked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="arrived">0</strong></div></div><label>Cari nama atau nomor meja</label><input id="staffquery" placeholder="Ketik nama / meja" oninput="renderStaff()"><div id="staffrows"></div><div class="notice">Data check-in staf tersimpan di Supabase setelah login.</div></div>
+<div id="guest" class="panel hidden guest-shell"><div class="guest-top"><div class="guest-brand">KREATIVTHINGS <span>SMART SEATING</span></div><div class="guest-ornament">✦</div><h2>Welcome to Our Wedding</h2><p>Find your seat with ease</p></div><div class="guest-inner"><div class="guest-search-card"><label for="guestquery">CARI NAMA UNDANGAN</label><div class="guest-search-row"><input id="guestquery" type="search" autocomplete="off" placeholder="Ketik nama Anda di sini..." oninput="renderGuest()"><button type="button" onclick="document.getElementById('guestquery').value='';renderGuest();document.getElementById('guestquery').focus()" aria-label="Hapus pencarian">✕</button></div><p class="guest-hint">Ketik minimal 2 huruf, lalu pilih nama Anda.</p><div class="guest-demo">Coba simulasi: <button type="button" onclick="guestDemo('Demo B')">Demo B · meja 35</button><button type="button" onclick="guestDemo('Demo F3')">Demo F3 · meja 122</button></div></div><div id="guestresult" aria-live="polite"></div><div id="guestmapbox" class="hidden"><div class="guest-map-title">Petunjuk arah dari Entrance</div><p style="font-size:12px;text-align:center;color:#806044">← Geser denah ke kiri atau kanan →</p><div class="guest-map-scroll"><svg id="viewmap" viewBox="0 0 1000 750"></svg></div><div class="notice">Garis hijau adalah rute simulasi. Meja 35 mengikuti koridor kiri Section B; F3 melalui Tangga 2 lalu lurus sebelum belok kiri. Jalur harus divalidasi langsung di venue sebelum digunakan untuk tamu.</div><button class="guest-back" onclick="document.getElementById('guestmapbox').classList.add('hidden');document.getElementById('guestquery').focus()">← Kembali ke hasil pencarian</button></div><p class="guest-footer">Need assistance? Please ask our Kreativthings crew.</p></div></div></div>
+<script>
+window.KT_INITIAL_GUESTS=[];
+</script><script>const initial=[{"id": "19", "capacity": 6, "x": 82.68, "y": 16.44, "section": "A", "shape": "rect"}, {"id": "11", "capacity": 2, "x": 91.09, "y": 61.01, "section": "A", "shape": "rect"}, {"id": "33", "capacity": 4, "x": 68.04, "y": 62.45, "section": "B", "shape": "round"}, {"id": "32", "capacity": 4, "x": 68.19, "y": 74.44, "section": "B", "shape": "round"}, {"id": "37", "capacity": 4, "x": 59.88, "y": 73.56, "section": "B", "shape": "round"}, {"id": "36", "capacity": 4, "x": 59.51, "y": 62.48, "section": "B", "shape": "round"}, {"id": "38", "capacity": 4, "x": 60.77, "y": 84.44, "section": "B", "shape": "round"}, {"id": "55A", "capacity": 4, "x": 51.86, "y": 50.95, "section": "C", "shape": "rect"}, {"id": "55B", "capacity": 4, "x": 46.44, "y": 50.95, "section": "C", "shape": "rect"}, {"id": "53", "capacity": 4, "x": 48.51, "y": 64.63, "section": "C", "shape": "round"}, {"id": "52", "capacity": 4, "x": 48.92, "y": 75.72, "section": "C", "shape": "round"}, {"id": "57", "capacity": 4, "x": 40.19, "y": 76.06, "section": "C", "shape": "round"}, {"id": "56", "capacity": 4, "x": 39.84, "y": 64.26, "section": "C", "shape": "round"}, {"id": "58B", "capacity": 4, "x": 40.91, "y": 86.67, "section": "C", "shape": "round"}, {"id": "63", "capacity": 4, "x": 30.56, "y": 65.56, "section": "D", "shape": "round"}, {"id": "62", "capacity": 4, "x": 30.42, "y": 77.78, "section": "D", "shape": "round"}, {"id": "66", "capacity": 4, "x": 21.72, "y": 76.74, "section": "D", "shape": "round"}, {"id": "65", "capacity": 4, "x": 21.79, "y": 65.56, "section": "D", "shape": "round"}, {"id": "67B", "capacity": 4, "x": 22.22, "y": 87.78, "section": "D", "shape": "round"}, {"id": "71", "capacity": 8, "x": 2.13, "y": 92.6, "section": "E", "shape": "rect"}, {"id": "70", "capacity": 6, "x": 6.66, "y": 96, "section": "E", "shape": "rect"}, {"id": "78", "capacity": 8, "x": 2.06, "y": 73.42, "section": "E", "shape": "rect"}, {"id": "77", "capacity": 6, "x": 6.9, "y": 78.77, "section": "E", "shape": "rect"}, {"id": "76", "capacity": 6, "x": 6.68, "y": 69.84, "section": "E", "shape": "rect"}, {"id": "73", "capacity": 6, "x": 7.06, "y": 89.5, "section": "E", "shape": "rect"}, {"id": "102", "capacity": 6, "x": 70.62, "y": 8.32, "section": "F", "shape": "rect"}, {"id": "101", "capacity": 4, "x": 74.64, "y": 19.59, "section": "F", "shape": "rect"}, {"id": "100B", "capacity": 2, "x": 75.21, "y": 35.51, "section": "F", "shape": "rect"}, {"id": "108", "capacity": 4, "x": 49.01, "y": 8.78, "section": "F", "shape": "rect"}, {"id": "121", "capacity": 4, "x": 17.5, "y": 18.63, "section": "F", "shape": "rect"}, {"id": "122", "capacity": 4, "x": 17.04, "y": 32.25, "section": "F", "shape": "rect"}, {"id": "34", "capacity": 6, "x": 69.72, "y": 50.95, "section": "B", "shape": "rect"}, {"id": "55", "capacity": 2, "x": 40.33, "y": 50.56, "section": "C", "shape": "rect"}, {"id": "35", "capacity": 2, "x": 60.78, "y": 50.83, "section": "B", "shape": "rect"}, {"id": "107", "capacity": 4, "x": 40.85, "y": 8.97, "section": "F", "shape": "rect"}, {"id": "22", "capacity": 6, "x": 78.91, "y": 59.29, "section": "A", "shape": "rect"}, {"id": "105", "capacity": 6, "x": 64.8, "y": 20.21, "section": "F", "shape": "rect"}, {"id": "58A", "capacity": 4, "x": 48.32, "y": 86.67, "section": "C", "shape": "round"}, {"id": "67A", "capacity": 4, "x": 29.55, "y": 87.5, "section": "D", "shape": "round"}, {"id": "31", "capacity": 4, "x": 67.82, "y": 84.35, "section": "B", "shape": "round"}, {"id": "21", "capacity": 4, "x": 84.1, "y": 69.28, "section": "A", "shape": "rect"}, {"id": "81", "capacity": 4, "x": 6.81, "y": 58.38, "section": "E", "shape": "rect"}, {"id": "106", "capacity": 6, "x": 65.34, "y": 38.8, "section": "F", "shape": "rect"}, {"id": "82", "capacity": 4, "x": 1.72, "y": 57.34, "section": "E", "shape": "rect"}, {"id": "80", "capacity": 6, "x": 6.56, "y": 52.66, "section": "E", "shape": "rect"}, {"id": "23", "capacity": 6, "x": 78.77, "y": 71.05, "section": "A", "shape": "rect"}, {"id": "20", "capacity": 4, "x": 83.8, "y": 61.02, "section": "A", "shape": "rect"}, {"id": "100A", "capacity": 2, "x": 75.24, "y": 42.64, "section": "F", "shape": "rect"}, {"id": "10", "capacity": 2, "x": 93.69, "y": 66.56, "section": "A", "shape": "rect"}, {"id": "12", "capacity": 2, "x": 89.31, "y": 55.2, "section": "A", "shape": "rect"}, {"id": "16", "capacity": 2, "x": 87.51, "y": 38.74, "section": "A", "shape": "rect"}, {"id": "15", "capacity": 2, "x": 87.86, "y": 44.36, "section": "A", "shape": "rect"}, {"id": "18", "capacity": 2, "x": 86.85, "y": 27.19, "section": "A", "shape": "rect"}, {"id": "17", "capacity": 2, "x": 87.14, "y": 33.16, "section": "A", "shape": "rect"}, {"id": "109", "capacity": 6, "x": 49.38, "y": 16.49, "section": "F", "shape": "rect"}, {"id": "110", "capacity": 6, "x": 42.2, "y": 16.48, "section": "F", "shape": "rect"}, {"id": "112", "capacity": 6, "x": 44.22, "y": 31.37, "section": "F", "shape": "rect"}, {"id": "115", "capacity": 6, "x": 44.84, "y": 39.49, "section": "F", "shape": "rect"}, {"id": "124", "capacity": 4, "x": 30.45, "y": 42.69, "section": "F", "shape": "rect"}, {"id": "123", "capacity": 4, "x": 24.7, "y": 42.89, "section": "F", "shape": "rect"}];const facilities=[{id:'Entrance',kind:'facility',x:94,y:96},{id:'Hostess',kind:'facility',x:95,y:87},{id:'B&G',kind:'facility',x:49,y:95},{id:'Backdrop',kind:'facility',x:13,y:88},{id:'Coffee Station',kind:'facility',x:26,y:51},{id:'Cashier',kind:'facility',x:31,y:54},{id:'Office',kind:'facility',x:15,y:6},{id:'Beverage',kind:'facility',x:95,y:76},{id:'Crew / Logistic',kind:'facility',x:5,y:27}];const baseline=[...initial.map(o=>({...o,kind:'table'})),...facilities];
+const load=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))||f}catch{return f}};let objects=baseline.map(o=>({...o})),published=baseline.map(o=>({...o})),people=[];for(const arr of [objects,published])for(const o of arr)if(['100A','100B'].includes(String(o.id)))o.section='F';objects=objects.filter(o=>String(o.id).toLowerCase()!=='acoustic');published=published.filter(o=>String(o.id).toLowerCase()!=='acoustic');let selected=-1,drag=null,history=[];const NS='http://www.w3.org/2000/svg';const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function node(tag,a={},txt=''){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(a))e.setAttribute(k,v);e.textContent=txt;return e}function tab(name){for(const n of ['admin','guests','staff','guest']){document.getElementById(n).classList.toggle('hidden',n!==name);document.getElementById('tab-'+n).classList.toggle('active',n===name)}if(name==='guest')renderGuest();if(name==='staff')renderStaff();if(name==='guests')renderGuests()}
+function draw(svg,data,highlight='',interactive=false){svg.replaceChildren();svg.append(node('rect',{x:1,y:1,width:998,height:748,fill:'#f9f2df',stroke:'#bca98e','stroke-width':3,rx:9}));
+// Upper level, with stepped right boundary that leaves tables 15–19 downstairs.
+svg.append(node('path',{d:'M 12 8 H 920 V 78 H 884 V 170 H 850 V 275 H 825 V 340 H 820 V 346 H 600 V 347 H 365 V 337 H 145 L 130 326 H 12 Z',fill:'#f8d9dc',stroke:'#e96b83','stroke-width':3,'stroke-dasharray':'10 7','stroke-linejoin':'round'}));
+// Physical access points (not tables).
+for(const [x,label] of [[590,'Tangga 1 · F1/F2'],[360,'Tangga 2 · F3']]){svg.append(node('rect',{x:x-17,y:341,width:34,height:36,rx:4,fill:'#e6c58b',stroke:'#9c713c','stroke-width':2}));for(let j=0;j<3;j++)svg.append(node('line',{x1:x-10,y1:349+j*8,x2:x+9,y2:349+j*8,stroke:'#5e472a','stroke-width':2}));svg.append(node('text',{x,y:333,'font-size':12,'text-anchor':'middle',fill:'#6a482c','font-weight':'bold'},label))}
+svg.append(node('text',{x:935,y:695,'font-size':13,'text-anchor':'middle',fill:'#6a482c'},'ENTRANCE'));[['F3',250,235],['F2',475,175],['F1',660,235],['A',815,380],['B',650,525],['C',440,525],['D',260,525],['E',55,520]].forEach(([s,x,y])=>svg.append(node('text',{x,y,fill:'#d2c2ae','font-size':23,'font-weight':700,'text-anchor':'middle'},'SEC '+s)));data.forEach((o,i)=>{let g=node('g',{'data-i':i,class:interactive?'item'+(selected===i?' selected':''):''});let x=o.x*10,y=o.y*7.5,active=o.kind==='table'&&String(o.id).toLowerCase()===String(highlight).toLowerCase();if(o.kind==='facility'){g.append(node('rect',{x:x-42,y:y-16,width:84,height:32,rx:4,fill:'#c5e2e1',stroke:'#7b9f9c'}));g.append(node('text',{x,y:y+4,'font-size':11,'text-anchor':'middle',fill:'#315b59'},o.id))}else{g.append(o.shape==='round'?node('circle',{cx:x,cy:y,r:24,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1}):node('rect',{x:x-28,y:y-23,width:56,height:46,rx:2,fill:active?'#d7a85b':'#fff',stroke:active?'#8c6226':'#948c81','stroke-width':active?4:1}));g.append(node('text',{x,y:y+3,'font-size':13,'text-anchor':'middle','font-weight':'bold',fill:'#403529'},o.id));g.append(node('text',{x,y:y+17,'font-size':10,'text-anchor':'middle',fill:'#6f665a'},String(o.capacity||0)))}svg.append(g);if(interactive){g.addEventListener('pointerdown',e=>{selected=i;const p=coord(e);drag={i,px:p.x,py:p.y,x:o.x,y:o.y,moved:false};svg.setPointerCapture(e.pointerId);showProps();draw(svg,objects,'',true)})}})}
+function coord(e){const p=document.getElementById('map').createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(document.getElementById('map').getScreenCTM().inverse());return{x:q.x/10,y:q.y/7.5}}document.getElementById('map').addEventListener('pointermove',e=>{if(!drag)return;let p=coord(e),dx=p.x-drag.px,dy=p.y-drag.py;if(Math.abs(dx)+Math.abs(dy)>.3&&!drag.moved){history.push(JSON.stringify(objects));drag.moved=true}if(drag.moved){objects[drag.i].x=Math.max(3,Math.min(97,drag.x+dx));objects[drag.i].y=Math.max(3,Math.min(97,drag.y+dy));draw(document.getElementById('map'),objects,'',true)}});document.getElementById('map').addEventListener('pointerup',()=>{drag=null;stats()});document.getElementById('map').addEventListener('pointercancel',()=>drag=null);
+function snapshot(){history.push(JSON.stringify(objects))}function showProps(){let o=objects[selected];document.getElementById('props').classList.toggle('hidden',!o);document.getElementById('noobj').classList.toggle('hidden',!!o);if(!o)return;for(const key of ['id','kind','capacity','section','shape'])document.getElementById('p-'+key).value=o[key]??'';document.getElementById('tableprops').classList.toggle('hidden',o.kind!=='table')}function edit(k,v){if(selected<0)return;if(k==='id'&&objects.some((o,i)=>i!==selected&&o.kind===objects[selected].kind&&o.id===v)){alert('Nomor/nama sudah digunakan');showProps();return}snapshot();objects[selected][k]=v;showProps();draw(document.getElementById('map'),objects,'',true);stats()}function add(kind){snapshot();objects.push(kind==='table'?{id:'NEW'+Date.now().toString().slice(-5),kind,x:50,y:50,capacity:4,section:'A',shape:'round'}:{id:'New Facility',kind,x:50,y:50});selected=objects.length-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function removeSelected(){if(selected<0)return;snapshot();objects.splice(selected,1);selected=-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function undo(){if(!history.length)return;objects=JSON.parse(history.pop());selected=-1;draw(document.getElementById('map'),objects,'',true);showProps();stats()}function save(){localStorage.setItem('kt4-draft',JSON.stringify(objects));savePathDraft();alert('Draft meja dan jalur tersimpan di browser ini')}function publish(){if(!confirm('Publish draft ke Guest View demo di browser ini?'))return;published=structuredClone(objects);localStorage.setItem('kt4-published',JSON.stringify(published));publishPath();save();alert('Published untuk demo lokal. Belum online atau tersinkron antar perangkat.')}function stats(){const t=objects.filter(o=>o.kind==='table');document.getElementById('stats').textContent=t.length+' meja • '+t.reduce((s,o)=>s+(Number(o.capacity)||0),0)+' kursi (PowerPoint menyebut 278, perlu verifikasi)'}function selectByNumber(s){let i=objects.findIndex(o=>o.kind==='table'&&String(o.id).toLowerCase()===s.trim().toLowerCase());if(i>=0){selected=i;draw(document.getElementById('map'),objects,'',true);showProps()}}
+function persistPeople(){localStorage.setItem('kt7-people',JSON.stringify(people))}function addGuest(){let name=document.getElementById('newname').value.trim(),table=document.getElementById('newtable').value.trim(),raw=document.getElementById('newpax').value,pax=raw===''?null:Number(raw);if(!name||pax!==null&&(!Number.isInteger(pax)||pax<1)){alert('Isi nama; pax boleh dikosongkan');return}people.push({name,table,pax,checked:false,group:'Input manual'});persistPeople();renderGuests();for(let k of ['newname','newtable'])document.getElementById(k).value=''}function renderGuests(){document.getElementById('guestrows').innerHTML='<p class="muted">'+people.length+' undangan • '+people.filter(g=>g.table).length+' assigned • '+people.filter(g=>!g.table).length+' unassigned</p>'+people.map((g,i)=>`<div class="result"><div style="flex:1"><b>${esc(g.name)}</b><br><small>${esc(g.group||'')} • ${g.pax??'?'} pax</small><br><label>Nomor meja</label><input aria-label="Meja untuk ${esc(g.name)}" value="${esc(g.table||'')}" placeholder="Belum ditentukan" onchange="setGuestTable(${i},this.value)" style="max-width:180px"></div><button onclick="removeGuest(${i})">Hapus</button></div>`).join('')}function setGuestTable(i,value){people[i].table=value.trim();persistPeople();renderGuests()}function removeGuest(i){if(confirm('Hapus tamu ini?')){people.splice(i,1);persistPeople();renderGuests()}}function renderStaff(){let q=document.getElementById('staffquery').value.toLowerCase();document.getElementById('checked').textContent=people.filter(g=>g.checked).length+'/'+people.length;document.getElementById('arrived').textContent=people.filter(g=>g.checked).reduce((s,g)=>s+g.pax,0);document.getElementById('staffrows').innerHTML=people.map((g,i)=>({...g,i})).filter(g=>g.name.toLowerCase().includes(q)||g.table.toLowerCase().includes(q)).map(g=>`<div class="result"><div><b>${esc(g.name)}</b><br><small>Table ${esc(g.table)} • ${g.pax} pax • ${g.checked?'✓ Hadir':'Belum check-in'}</small></div><button onclick="toggleCheck(${g.i})">${g.checked?'Undo':'Check-in'}</button></div>`).join('')||'<p>Tidak ditemukan</p>'}function toggleCheck(i){people[i].checked=!people[i].checked;persistPeople();renderStaff()}
+function guestDemo(name){document.getElementById('guestquery').value=name;renderGuest();document.getElementById('guestresult').scrollIntoView({behavior:'smooth',block:'nearest'});}function renderGuest(){let q=document.getElementById('guestquery').value.trim().toLowerCase(),out=document.getElementById('guestresult'),box=document.getElementById('guestmapbox');box.classList.add('hidden');if(q.length<2){out.innerHTML='<div class="notice">Ketik minimal 2 huruf nama undangan.</div>';return}let matches=[];if('demo f3'.includes(q))matches.unshift({name:'Demo F3',table:'122',i:-122});if('demo b'.includes(q))matches.unshift({name:'Demo B',table:'35',i:-35});out.innerHTML=matches.length?matches.map(g=>`<div class="result"><div><b>${esc(g.name)}</b><br><small>${g.table?'Meja '+esc(g.table):'Meja belum ditentukan'}</small></div><button onclick="showGuestTable(${g.i})">Lihat meja</button></div>`).join(''):'<div class="notice">Nama belum ditemukan. Hubungi crew registrasi.</div>'}function showGuestTable(i){
+ let g=i===-122?{name:'Demo F3',table:'122'}:i===-35?{name:'Demo B',table:'35'}:null;if(!g)return;
+ let t=published.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===String(g.table).toLowerCase());
+ let out=document.getElementById('guestresult'),box=document.getElementById('guestmapbox');
+ box.classList.add('hidden');
+ if(!g.table||!t){out.innerHTML='<div class="notice">Nomor meja belum tersedia atau belum dipublish. Silakan hubungi crew registrasi.</div>';return;}
+ let sec=sectionRoute(t),up=sec.startsWith('F');
+ let directions=sec==='F3'?'Dari Entrance, ikuti koridor bawah menuju Tangga 2. Setelah naik, jalan lurus dahulu, kemudian belok kiri menuju meja.':sec==='F1'||sec==='F2'?'Dari Entrance, ikuti koridor bawah menuju Tangga 1, lanjut lurus, lalu menuju meja.':'Dari Entrance, ikuti koridor lantai bawah menuju meja.';
+ out.innerHTML=`<div class="guest-seat"><small>SELAMAT DATANG, ${esc(g.name)}</small><div style="margin-top:15px;color:#99816a;font-size:12px;letter-spacing:.15em">NOMOR MEJA ANDA</div><h2>${esc(g.table)}</h2><div class="guest-section">Section ${esc(sec)} · ${up?'Level Atas':'Level Bawah'}</div><p style="font-size:13px;line-height:1.6;color:#78685a">${directions}</p><button class="guest-route-button" onclick="showGuestRoute('${esc(g.table)}')">Tampilkan Rute pada Denah</button></div>`;
+}
+function showGuestRoute(table){let box=document.getElementById('guestmapbox');box.classList.remove('hidden');draw(document.getElementById('viewmap'),published,table,false);paintRoutes(document.getElementById('viewmap'),published,publishedPath,table,false);box.scrollIntoView({behavior:'smooth',block:'start'});}
+function download(name,text,type){let b=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}function downloadJSON(){download('kreativthings-backup-v17.json',JSON.stringify({version:5,objects,people,published,pathDraft,publishedPath},null,2),'application/json')}async function importBackup(e){let f=e.target.files[0];if(!f)return;try{let j=JSON.parse(await f.text());if(!Array.isArray(j.objects)||!Array.isArray(j.people))throw Error();objects=j.objects;people=j.people;published=Array.isArray(j.published)?j.published:j.objects;if(j.pathDraft&&Array.isArray(j.pathDraft.points)&&Array.isArray(j.pathDraft.edges))pathDraft=j.pathDraft;if(j.publishedPath&&Array.isArray(j.publishedPath.points)&&Array.isArray(j.publishedPath.edges))publishedPath=j.publishedPath;savePathDraft();publishPath();selected=-1;save();persistPeople();localStorage.setItem('kt4-published',JSON.stringify(published));draw(document.getElementById('map'),objects,'',true);showProps();stats();alert('Backup berhasil dimuat')}catch{alert('Format backup tidak valid')}}function csvEscape(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}function downloadCSV(){download('kreativthings-guests.csv','name,table,pax,checked\n'+people.map(g=>[g.name,g.table,g.pax??"",g.group||"",g.checked].map(csvEscape).join(',')).join('\n'),'text/csv')}function parseCSV(text){let rows=[],row=[],field='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=false;else field+=c}else if(c==='"')quoted=true;else if(c===','){row.push(field);field=''}else if(c==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field=''}else field+=c}if(field||row.length){row.push(field);rows.push(row)}return rows}async function importCSV(e){let f=e.target.files[0];if(!f)return;try{let lines=parseCSV(await f.text()),head=lines.shift().map(x=>x.trim().toLowerCase().replace(/^\ufeff/,''));if(!head.includes('name'))throw Error('Kolom name wajib ada');let incoming=lines.filter(r=>r.some(x=>x.trim())).map(r=>{let o=Object.fromEntries(head.map((h,i)=>[h,(r[i]||'').trim()]));return{name:o.name,table:o.table||'',pax:o.pax?Number(o.pax):null,group:o.group||'Import CSV',checked:false}});if(incoming.some(g=>!g.name||g.pax!==null&&(!Number.isInteger(g.pax)||g.pax<1)))throw Error('Ada nama atau pax tidak valid');if(!confirm('Tambahkan '+incoming.length+' undangan? Periksa duplikasi nama setelah import.'))return;people.push(...incoming);persistPeople();renderGuests();alert('Import selesai')}catch(err){alert(err.message||'CSV tidak valid')}}draw(document.getElementById('map'),objects,'',true);stats();renderGuests();renderGuest();</script><script>
+// Navigasi demo: koordinat denah 1000 x 750. Preset perlu divalidasi di venue.
+const PATH_KEY='kt17-path-draft', PUB_KEY='kt17-path-published';
+const ROUTES={
+ entrance:[940,720],
+ A:[[940,720],[940,600]],
+ B:[[940,720],[750,720]],
+ C:[[940,720],[750,720],[555,720]],
+ D:[[940,720],[750,720],[555,720],[360,720]],
+ E:[[940,720],[750,720],[555,720],[360,720],[120,720]],
+ F1:[[940,720],[590,720],[590,420]],
+ F2:[[940,720],[590,720],[590,420]],
+ F3:[[940,720],[360,720],[360,420],[250,420]]
+};
+// Rute meja dihitung ulang dari cabang section, tidak memakai ujung preset secara buta.
+// Rute v11: meja tertentu harus memakai koridor meja acuan, bukan cabang section default.
+const REFERENCE_CORRIDORS={
+  '56':{access:360,reference:'63'},'57':{access:360,reference:'63'},'58B':{access:360,reference:'63'},
+  '65':{access:120,reference:'76'},'66':{access:120,reference:'76'},'67A':{access:120,reference:'76'},'67B':{access:120,reference:'76'},
+  '36':{access:555,reference:'53'},'37':{access:555,reference:'53'},'38':{access:555,reference:'53'}
+};
+function routeCoords(t){
+ const x=t.x*10,y=t.y*7.5,s=sectionRoute(t),id=String(t.id).toUpperCase();
+ const points=[[940,720]];
+ const add=(a,b)=>{let last=points[points.length-1];if(Math.hypot(last[0]-a,last[1]-b)>1)points.push([a,b]);};
+ const nearY=Math.max(60,Math.min(695,y));
+ if(id==='35'){
+   // Jalur meja 35: dari Entrance ke kiri di koridor bawah,
+   // naik lurus di kiri meja 36/37/38, lalu sedikit kanan ke meja 35.
+   // Section B level bawah: tidak melewati tangga.
+   const corridorX=590;
+   add(corridorX,720);
+   add(corridorX,y+28);
+   add(x,y+28);
+ }else if(s==='F1'||s==='F2'){
+   // Koreksi Gracy: Entrance -> koridor bawah -> naik LURUS
+   // melewati Tangga 1 (di antara 55A dan 35). Tidak belok
+   // sebelum tangga. Baru berbelok di ketinggian meja tujuan.
+   const stairAxis=590;
+   add(stairAxis,720);
+   const approachY=y>420?y+29:y+29;
+   add(stairAxis,Math.min(approachY,310));
+   const sideX=x<stairAxis?x+30:x-30;
+   add(sideX,approachY);
+   add(sideX,y);
+ }else if(s==='F3'){
+   // Tangga 2 berada pada sumbu x=360. Setelah naik, terus lurus
+   // pada sumbu yang sama sampai setinggi akses meja, lalu SATU belokan kiri.
+   // Tidak ada belokan mendatar segera setelah tangga atau zigzag tambahan.
+   const stairAxis=360;
+   const targetY=y;
+   add(stairAxis,720);
+   add(stairAxis,targetY);
+   add(x+31,targetY);
+ }else if(id==='100A'||id==='100B'){
+   // Koreksi manual: 100A/B melalui koridor utama B/C, bukan sisi Section A.
+   add(610,720);add(610,Math.min(nearY,420));
+   add(x-31,Math.min(nearY,420));add(x-31,nearY);
+ }else if(s==='A'){
+   add(940,nearY);add(x<940?x+31:x-31,nearY);
+ }else if(REFERENCE_CORRIDORS[id]){
+   const access=REFERENCE_CORRIDORS[id].access;
+   add(access,720);add(access,nearY);add(x<access?x+31:x-31,nearY);
+ }else if(['B','C','D','E'].includes(s)){
+   const access={B:750,C:555,D:360,E:120}[s];
+   add(access,720);add(access,nearY);add(x<access?x+31:x-31,nearY);
+ }
+ return points;
+}
+function sectionRoute(table){let s=table.section;if(['100A','100B'].includes(String(table.id)))return 'F1';if(s!=='F')return s;return table.x>=57?'F1':table.x>=37?'F2':'F3'}
+function routeTo(data,tableNo){let t=data.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===String(tableNo).toLowerCase());if(!t)return null;let key=sectionRoute(t);return {key,table:t,points:routeCoords(t),unverified:true};}
+let pathDraft=JSON.parse(localStorage.getItem(PATH_KEY)||'null')||{routes:structuredClone(ROUTES),points:[],edges:[]};
+let publishedPath=JSON.parse(localStorage.getItem(PUB_KEY)||'null')||structuredClone(pathDraft);
+let pathMode=false;
+function savePathDraft(){localStorage.setItem(PATH_KEY,JSON.stringify(pathDraft))}
+function publishPath(){publishedPath=structuredClone(pathDraft);localStorage.setItem(PUB_KEY,JSON.stringify(publishedPath))}
+function loadPresetRoutes(){pathDraft={routes:structuredClone(ROUTES),points:[],edges:[]};savePathDraft();refreshMaps();alert('Preset Section A–F v17 telah diperbarui. Periksa dan publish untuk demo tamu.')}
+function togglePathMode(){pathMode=!pathMode;document.getElementById('pathmode').textContent=pathMode?'✓ Selesai Edit Jalur':'✎ Edit Jalur';refreshMaps()}
+function resetPath(){if(confirm('Kembalikan jalur ke preset standar v17?'))loadPresetRoutes()}
+function paintRoutes(svg,data,path,tableNo,admin){
+ if(!svg)return;let old=svg.querySelector('#route-layer');if(old)old.remove();let g=node('g',{id:'route-layer','pointer-events':'none'});svg.append(g);
+ let t=data.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===String(tableNo).toLowerCase());
+ if(!t){if(admin){let label=node('text',{x:700,y:30,'font-size':15,fill:'#7d6b56'},'Pilih nomor meja untuk preview jalur');g.append(label)}return}
+ let key=sectionRoute(t),coords=routeCoords(t);if(!coords.length)return;
+ if(key.startsWith('F')){
+   [[590,'1'],[360,'2']].forEach(([sx,label])=>{
+     g.append(node('circle',{cx:sx,cy:420,r:13,fill:'#fff8e9',stroke:'#b58b4b','stroke-width':2}));
+     g.append(node('text',{x:sx,y:424,'font-size':11,'text-anchor':'middle',fill:'#795a27','font-weight':'bold'},label));
+   });
+ }
+let pathStr=coords.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
+ g.append(node('path',{d:pathStr,stroke:'#ffffff','stroke-width':11,fill:'none','stroke-linejoin':'round','stroke-linecap':'round'}));
+ g.append(node('path',{d:pathStr,stroke:'#218769','stroke-width':5,fill:'none','stroke-linejoin':'round','stroke-linecap':'round'}));
+ for(let i=1;i<coords.length;i++){let a=coords[i-1],b=coords[i],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<24)continue;let x=(a[0]+b[0])/2,y=(a[1]+b[1])/2,angle=Math.atan2(dy,dx)*180/Math.PI;g.append(node('path',{d:'M -8 -5 L 0 0 L -8 5',stroke:'#218769','stroke-width':3,fill:'none',transform:`translate(${x} ${y}) rotate(${angle})`}))}
+ g.append(node('circle',{cx:940,cy:720,r:9,fill:'#218769',stroke:'#fff','stroke-width':3}));
+ g.append(node('circle',{cx:t.x*10,cy:t.y*7.5,r:30,stroke:'#c79c48','stroke-width':5,fill:'none'}));
+ g.append(node('text',{x:20,y:30,'font-size':15,fill:'#755d3c'},`Rute ${key} • demo belum divalidasi`));
+}
+function refreshMaps(){let svg=document.getElementById('map');let no=document.getElementById('route-table').value.trim();draw(svg,objects,no,true);paintRoutes(svg,objects,pathDraft,no,true);document.getElementById('route-status').textContent=no?(objects.some(o=>o.kind==='table'&&o.id.toLowerCase()===no.toLowerCase())?'Preset tersedia • belum divalidasi':'Meja tidak ditemukan'):'Preset A–F v17 tersedia';}
+// Keep preview route visible after dragging or editing.
+const _originalDraw=draw;draw=function(svg,data,highlight='',interactive=false){_originalDraw(svg,data,highlight,interactive);if(svg.id==='map'&&document.getElementById('route-table')){let no=document.getElementById('route-table').value.trim();if(no)paintRoutes(svg,data,pathDraft,no,true)}};
+// Draw a sample route immediately to make the standard path visible.
+document.getElementById('route-table').value='55A';refreshMaps();
+
+</script><script>
+// Preset routes are loaded from navigation.js
+
+</script><style>
+header{display:none!important}#admin,#guests{display:none!important}
+#guest{display:block!important;max-width:760px;margin:auto}
+body{background:#faf6f0}
+.demo-safety{max-width:760px;margin:12px auto;padding:12px 16px;border:1px solid #e5d9ca;border-radius:10px;background:#fff9ef;color:#705c46;font-size:13px;line-height:1.5}
+#staff{max-width:760px;margin:15px auto}#staff.hidden{display:none!important}
+#staffPortal{max-width:760px;margin:16px auto 0;text-align:right;padding:0 10px}
+#staffLogin{max-width:760px;margin:12px auto;padding:20px}#staffLogin.hidden{display:none!important}
+#staffLogin input{margin-bottom:10px}#staffStatus{margin:10px 0;color:#765a3e}
+</style>
+<div id="staffPortal"><button onclick="openStaffLogin()">Staff Login</button></div>
+<section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
+<script>
+// Only demo guests are searchable publicly. Never put a full guest list in browser storage.
+people=[];
+published=baseline.map(o=>({...o}));
+const previewNotice=document.createElement('div');previewNotice.className='demo-safety';
+previewNotice.textContent='MODE SIMULASI — Guest View masih menggunakan Demo B dan Demo F3. Pencarian tamu asli belum diaktifkan demi privasi.';
+document.querySelector('.wrap').prepend(previewNotice);
+document.getElementById('guest').classList.remove('hidden');
+document.getElementById('guestquery').value='';renderGuest();
+// Supabase: publishable key is public, but the staff JWT must remain in memory only.
+const SB_URL='https://vqfdpyvnlmmqhlfqsewg.supabase.co';
+const SB_KEY='sb_publishable_lnNoEOYUygwA-FGMs5PqKQ_OlFEc9Of';
+let staffToken=null,staffGuests=[];
+const staffStatus=t=>document.getElementById('staffStatus').textContent=t;
+function openStaffLogin(){document.getElementById('staffLogin').classList.remove('hidden');document.getElementById('staffLogin').scrollIntoView({behavior:'smooth'});}
+async function staffSignIn(){
+ const email=document.getElementById('staffEmail').value.trim(),password=document.getElementById('staffPassword').value;
+ if(!email||!password){staffStatus('Isi email dan password staf.');return;}
+ staffStatus('Sedang login…');
+ try{
+  const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const j=await r.json();if(!r.ok||!j.access_token)throw Error(j.msg||j.error_description||j.message||'Login gagal');
+  staffToken=j.access_token;document.getElementById('staffPassword').value='';
+  await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
+  document.getElementById('guest').classList.remove('hidden');previewNotice.classList.add('hidden');renderGuest();
+  staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
+ }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
+}
+function staffSignOut(){staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.remove('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
+async function sbStaff(path,opts={}){
+ if(!staffToken)throw Error('Silakan login kembali.');
+ const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,...(opts.headers||{})}});
+ if(!r.ok){let t=await r.text();throw Error('Supabase '+r.status+': '+t.slice(0,200));}
+ return r.status===204?null:r.json();
+}
+async function loadStaffGuests(){
+ staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in&order=guest_name.asc&limit=1000');
+ renderLiveStaff();
+}
+function renderLiveStaff(){
+ let q=document.getElementById('staffquery').value.trim().toLowerCase();
+ document.getElementById('checked').textContent=staffGuests.filter(g=>g.checked_in).length+'/'+staffGuests.length;
+ document.getElementById('arrived').textContent=staffGuests.filter(g=>g.checked_in).reduce((n,g)=>n+(Number(g.pax)||0),0);
+ document.getElementById('staffrows').innerHTML=staffGuests.filter(g=>String(g.guest_name||'').toLowerCase().includes(q)||String(g.table_number||'').toLowerCase().includes(q)).map(g=>`<div class="result"><div><b>${esc(g.guest_name)}</b><br><small>${esc(g.category||'')} • Meja ${esc(g.table_number||'-')} • ${Number(g.pax)||0} pax • ${g.checked_in?'✓ Hadir':'Belum check-in'}</small></div><button data-id="${esc(g.id)}" onclick="liveCheck(this.dataset.id)">${g.checked_in?'Undo':'Check-in'}</button></div>`).join('')||'<p class="muted">Tidak ada tamu yang cocok.</p>';
+}
+async function liveCheck(id){
+ const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;
+ try{await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({checked_in:!g.checked_in})});await loadStaffGuests();}
+ catch(e){alert('Check-in gagal: '+e.message)}
+}
+// Override legacy demo-only renderer when staff is logged in.
+renderStaff=function(){if(staffToken)renderLiveStaff();};
+// Staff can test real guest-name lookup after authentication; public visitors see demos only.
+const originalGuestSearch=renderGuest, originalGuestSelect=showGuestTable;
+renderGuest=function(){
+ if(!staffToken)return originalGuestSearch();
+ const q=document.getElementById('guestquery').value.trim().toLowerCase();
+ const out=document.getElementById('guestresult');
+ document.getElementById('guestmapbox').classList.add('hidden');
+ if(q.length<2){out.innerHTML='<div class="notice">Ketik minimal 2 huruf nama undangan.</div>';return;}
+ const matches=staffGuests.map((g,i)=>({...g,i})).filter(g=>String(g.guest_name||'').toLowerCase().includes(q)).slice(0,15);
+ out.innerHTML=matches.length?matches.map(g=>`<div class="result"><div><b>${esc(g.guest_name)}</b><br><small>${g.table_number?'Meja '+esc(g.table_number):'Meja belum ditentukan'}</small></div><button onclick="showGuestTable(${g.i})">Lihat meja</button></div>`).join(''):'<div class="notice">Nama belum ditemukan. Hubungi crew registrasi.</div>';
+};
+showGuestTable=function(i){
+ if(!staffToken||i<0)return originalGuestSelect(i);
+ const g=staffGuests[i];if(!g)return;
+ const table=String(g.table_number||'').trim();
+ const t=published.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===table.toLowerCase());
+ const out=document.getElementById('guestresult');
+ document.getElementById('guestmapbox').classList.add('hidden');
+ if(!table||!t){out.innerHTML='<div class="notice">Nomor meja belum tersedia pada denah. Hubungi crew registrasi.</div>';return;}
+ const sec=sectionRoute(t),up=sec.startsWith('F');
+ const directions=sec==='F3'?'Dari Entrance, ikuti koridor bawah menuju Tangga 2. Setelah naik, jalan lurus dahulu, kemudian belok kiri menuju meja.':up?'Dari Entrance, ikuti koridor bawah menuju Tangga 1, lanjut lurus, lalu menuju meja.':'Dari Entrance, ikuti koridor lantai bawah menuju meja.';
+ out.innerHTML=`<div class="guest-seat"><small>SELAMAT DATANG, ${esc(g.guest_name)}</small><div style="margin-top:15px;color:#99816a;font-size:12px;letter-spacing:.15em">NOMOR MEJA ANDA</div><h2>${esc(table)}</h2><div class="guest-section">Section ${esc(sec)} · ${up?'Level Atas':'Level Bawah'}</div><p>${esc(directions)}</p><button class="guest-route-button" onclick="showGuestRoute('${esc(table)}')">Tampilkan Rute pada Denah</button></div>`;
+};
+function openStaffGuestPreview(){
+ if(!staffToken)return openStaffLogin();
+ document.getElementById('staff').classList.add('hidden');
+ document.getElementById('guest').classList.remove('hidden');
+ document.getElementById('guestquery').value='';renderGuest();
+ document.getElementById('guest').scrollIntoView({behavior:'smooth'});
+}
+const staffPreviewBtn=document.createElement('button');staffPreviewBtn.textContent='Lihat pencarian & denah di bawah ↓';staffPreviewBtn.onclick=openStaffGuestPreview;
+document.querySelector('#staff .metrics').after(staffPreviewBtn);
+const refreshBtn=document.createElement('button');refreshBtn.textContent='↻ Refresh status check-in';refreshBtn.onclick=async()=>{try{await loadStaffGuests();staffStatus('Status tamu diperbarui dari Supabase.')}catch(e){staffStatus('Refresh gagal: '+e.message)}};document.querySelector('#staff .metrics').after(refreshBtn);
+const staffGuide=document.createElement('p');staffGuide.className='muted';staffGuide.textContent='Setelah login, scroll ke bawah untuk cari nama dan melihat rute meja. Gunakan Refresh untuk melihat check-in dari HP staf lain.';document.querySelector('#staff .metrics').after(staffGuide);
+
+</script></html>
