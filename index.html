@@ -401,7 +401,18 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <h2>Admin Dashboard • Kreativthings</h2>
  <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Denah editor saat ini masih berupa draft lokal di browser, bukan publish online.</p>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="adminPax">0</strong></div></div>
- <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenLayout()">Edit Denah (Lokal)</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
+ <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="adminOpenLayout()">Edit Denah (Lokal)</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
+ <div id="adminNewGuest" class="admin-editor hidden">
+ <h2>Tambah Tamu Baru</h2>
+ <p class="muted">Data akan disimpan online di Supabase dan dapat dicari oleh staf maupun tamu melalui QR.</p>
+ <label for="adminNewName">Nama undangan</label><input id="adminNewName" maxlength="200" placeholder="Nama tamu">
+ <label for="adminNewCategory">Kategori</label><select id="adminNewCategory"><option value="Regular">Regular</option><option value="VIP">VIP</option><option value="VVIP">VVIP</option><option value="Family">Family</option></select>
+ <label for="adminNewTable">Nomor meja</label><input id="adminNewTable" placeholder="Contoh: 35 atau 122" oninput="adminSuggestSection()">
+ <label for="adminNewSection">Section</label><select id="adminNewSection"><option value="">Pilih section</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F1</option><option>F2</option><option>F3</option></select>
+ <label for="adminNewPax">Jumlah pax</label><input id="adminNewPax" type="number" min="1" step="1" value="2">
+ <div class="admin-actions"><button id="adminCreateButton" class="primary" onclick="adminCreateGuest()">Simpan Tamu Online</button><button onclick="adminCloseNewGuest()">Batal</button></div>
+ <p id="adminNewStatus" role="status"></p>
+</div>
  <div id="adminGuestManager" class="hidden"><label for="adminSearch">Cari nama atau meja</label><input id="adminSearch" placeholder="Cari tamu..." oninput="adminRenderGuests()"><div id="adminGuestRows"></div><p class="notice">Perubahan nama, meja, dan pax akan disimpan ke Supabase hanya bila izin database Admin mengizinkan. Tombol check-in tetap tersedia di Staff Registration.</p></div>
  <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button></div><p id="adminEditStatus" role="status"></p></div>
  <p id="adminDashboardStatus" class="muted" role="status"></p>
@@ -432,6 +443,48 @@ function adminShowGuests(){
  document.getElementById('adminGuestEditor').classList.add('hidden');
  adminRenderGuests();
  document.getElementById('adminGuestManager').scrollIntoView({behavior:'smooth'});
+}
+function adminOpenNewGuest(){
+ if(!staffToken||!ktAdminRole)return;
+ document.getElementById('adminNewGuest').classList.remove('hidden');
+ document.getElementById('adminGuestEditor').classList.add('hidden');
+ document.getElementById('adminNewStatus').textContent='';
+ document.getElementById('adminNewGuest').scrollIntoView({behavior:'smooth'});
+}
+function adminCloseNewGuest(){
+ document.getElementById('adminNewGuest').classList.add('hidden');
+}
+function adminSuggestSection(){
+ const table=document.getElementById('adminNewTable').value.trim();
+ const t=published.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===table.toLowerCase());
+ if(t)document.getElementById('adminNewSection').value=sectionRoute(t);
+}
+async function adminCreateGuest(){
+ if(!staffToken||!ktAdminRole)return;
+ const name=document.getElementById('adminNewName').value.trim();
+ const category=document.getElementById('adminNewCategory').value;
+ const table=document.getElementById('adminNewTable').value.trim();
+ const section=document.getElementById('adminNewSection').value;
+ const pax=Number(document.getElementById('adminNewPax').value);
+ const status=document.getElementById('adminNewStatus');
+ if(!name||!Number.isInteger(pax)||pax<1){status.textContent='Isi nama dan jumlah pax minimal 1.';return;}
+ if(table&&!published.some(o=>o.kind==='table'&&String(o.id).toLowerCase()===table.toLowerCase())){status.textContent='Nomor meja tidak ada pada denah. Periksa kembali.';return;}
+ if(!section){status.textContent='Pilih section tamu.';return;}
+ if(!confirm('Tambahkan '+name+' ('+pax+' pax) ke Supabase?'))return;
+ const btn=document.getElementById('adminCreateButton');
+ btn.disabled=true;status.textContent='Menyimpan tamu baru…';
+ try{
+  const rows=await sbStaff('wedding_guests',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({guest_name:name,category,pax,table_number:table||null,section,checked_in:false})});
+  if(!Array.isArray(rows)||rows.length!==1)throw Error('Data belum dikonfirmasi tersimpan. Periksa izin RLS Admin.');
+  await loadStaffGuests();
+  adminRenderSummary();adminRenderGuests();
+  document.getElementById('adminNewName').value='';
+  document.getElementById('adminNewTable').value='';
+  document.getElementById('adminNewSection').value='';
+  document.getElementById('adminNewPax').value='2';
+  status.textContent='Berhasil! Tamu baru tersimpan online di Supabase.';
+ }catch(e){status.textContent='Gagal menambahkan tamu: '+e.message;}
+ finally{btn.disabled=false;}
 }
 function adminRenderGuests(){
  if(!ktAdminRole)return;
