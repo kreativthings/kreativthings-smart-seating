@@ -567,7 +567,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
 </div>
  <div id="ktExcelImport" class="admin-editor hidden">
  <h2>Import Excel Daftar Tamu</h2>
- <p class="muted">Format: Nama Tamu / Grup, Kategori, Dewasa, Anak, Nomor Meja, Section. Data yang sudah ada tidak akan dihapus.</p>
+ <p class="muted">Format: Nama Tamu / Grup, Kategori, Dewasa, Anak, Nomor Meja, Section. Data lama akan diperbarui berdasarkan nama, status check-in tetap aman.</p>
  <label for="ktExcelFile">Pilih file Excel (.xlsx atau .xls)</label>
  <input id="ktExcelFile" type="file" accept=".xlsx,.xls" onchange="ktReadExcel(this)">
  <p id="ktExcelInfo" role="status" class="muted"></p>
@@ -919,11 +919,14 @@ async function ktReadExcel(input){
   if(errors.length)throw Error(errors.slice(0,5).join('; '));
   if(!parsed.length)throw Error('Tidak ada tamu yang dapat dibaca.');
   if(parsed.length>1000)throw Error('Maksimal 1000 baris per import.');
-  // Duplicate names within the same Excel are highlighted and skipped.
-  const seen=new Set();
-  ktExcelRows=parsed.filter(r=>{const key=r.guest_name.toLocaleLowerCase('id');if(seen.has(key))return false;seen.add(key);return true;});
-  const duplicates=parsed.length-ktExcelRows.length;
-  status.textContent=ktExcelRows.length+' tamu siap diimport'+(duplicates?' • '+duplicates+' nama duplikat dalam file dilewati':'')+'. Data lama tidak akan dihapus.';
+  // Block ambiguous duplicate names instead of silently choosing a record.
+  const counts=new Map();
+  parsed.forEach(r=>{const k=ktExcelKey(r.guest_name);counts.set(k,(counts.get(k)||0)+1);});
+  const dupes=[...counts].filter(([,n])=>n>1);
+  if(dupes.length)throw Error('Ada nama duplikat dalam Excel: '+dupes.slice(0,5).map(([n])=>n).join(', ')+'. Periksa dahulu agar tidak salah update.');
+  ktExcelRows=parsed;
+  const plan=ktExcelPlan();
+  status.textContent=plan.updates.length+' tamu akan diperbarui, '+plan.inserts.length+' tamu baru, '+plan.conflicts.length+' nama ambigu perlu diperiksa. Status check-in tidak diubah.';
   const table=document.createElement('table');
   table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
   const head=document.createElement('tr');
@@ -937,37 +940,58 @@ async function ktReadExcel(input){
   }
   preview.replaceChildren(table);
   if(ktExcelRows.length>12)preview.insertAdjacentText('beforeend','Preview 12 dari '+ktExcelRows.length+' baris.');
-  btn.disabled=false;
+  btn.disabled=plan.conflicts.length>0;
  }catch(e){status.textContent='Gagal membaca file: '+e.message;}
+}
+function ktExcelKey(v){return String(v||'').trim().replace(/\\s+/g,' ').toLocaleLowerCase('id');}
+function ktExcelPlan(){
+ const existing=new Map();
+ for(const g of staffGuests){const k=ktExcelKey(g.guest_name);if(!existing.has(k))existing.set(k,[]);existing.get(k).push(g);}
+ const updates=[],inserts=[],conflicts=[];
+ for(const row of ktExcelRows){
+  const matches=existing.get(ktExcelKey(row.guest_name))||[];
+  if(matches.length>1)conflicts.push(row.guest_name);
+  else if(matches.length===1)updates.push({row,record:matches[0]});
+  else inserts.push(row);
+ }
+ return {updates,inserts,conflicts};
 }
 async function ktImportExcel(){
  if(!staffToken||!ktAdminRole||!ktExcelRows.length)return;
  const status=document.getElementById('ktExcelInfo'),btn=document.getElementById('ktExcelConfirm');
- // Avoid overwriting any existing guest record; append only.
- const existing=new Set(staffGuests.map(g=>String(g.guest_name||'').trim().toLocaleLowerCase('id')));
- const fresh=ktExcelRows.filter(g=>!existing.has(g.guest_name.toLocaleLowerCase('id')));
- if(!fresh.length){status.textContent='Semua nama sudah ada. Tidak ada data baru untuk diimport.';return;}
- if(!confirm('Tambahkan '+fresh.length+' tamu baru ke Supabase? '+(ktExcelRows.length-fresh.length)+' nama yang sudah ada akan dilewati. Data lama tidak dihapus.'))return;
  btn.disabled=true;
- let completed=0;
+ let updated=0,added=0;
  try{
-  // Refresh expired session before write, rather than silently losing changes.
   if(typeof ktRefreshSession==='function')await ktRefreshSession(false);
-  if(!staffToken)throw Error('Sesi Admin berakhir. Login ulang.');
-  for(let i=0;i<fresh.length;i+=25){
-   const batch=fresh.slice(i,i+25);
-   const result=await sbStaff('wedding_guests',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(batch)});
-   if(!Array.isArray(result)||result.length!==batch.length)throw Error('Konfirmasi penyimpanan batch tidak lengkap');
-   completed+=batch.length;
-   status.textContent='Tersimpan '+completed+' dari '+fresh.length+' tamu…';
-  }
+  if(!staffToken)throw Error('Sesi Admin berakhir. Silakan login ulang.');
+  // Always read the latest server state before matching names.
   await loadStaffGuests();
-  adminRenderSummary();adminRenderGuests();
-  status.textContent='Berhasil! '+completed+' tamu baru tersimpan online. '+(ktExcelRows.length-fresh.length)+' nama lama dilewati.';
+  const plan=ktExcelPlan();
+  if(plan.conflicts.length)throw Error('Ada nama yang muncul lebih dari sekali dalam database: '+plan.conflicts.slice(0,5).join(', ')+'. Periksa secara manual.');
+  status.textContent=plan.updates.length+' update, '+plan.inserts.length+' baru. Menunggu konfirmasi.';
+  if(!confirm('Update '+plan.updates.length+' tamu berdasarkan nama dan tambah '+plan.inserts.length+' tamu baru? Nama, kategori, pax, meja, dan section mengikuti Excel. Status check-in dipertahankan.'))return;
+  for(const {row,record} of plan.updates){
+   // PATCH only fields present in the guest schema. Never modify checked_in.
+   const body={guest_name:row.guest_name,category:row.category,pax:row.pax,table_number:row.table_number,section:row.section};
+   const result=await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(record.id),{
+    method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)});
+   if(!Array.isArray(result)||result.length!==1)throw Error('Update '+row.guest_name+' tidak terkonfirmasi.');
+   updated++;
+   status.textContent='Memperbarui '+updated+'/'+plan.updates.length+'; tambah '+added+'/'+plan.inserts.length;
+  }
+  for(let i=0;i<plan.inserts.length;i+=25){
+   const batch=plan.inserts.slice(i,i+25);
+   const result=await sbStaff('wedding_guests',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(batch)});
+   if(!Array.isArray(result)||result.length!==batch.length)throw Error('Penambahan tamu tidak terkonfirmasi.');
+   added+=batch.length;
+   status.textContent='Memperbarui '+updated+'/'+plan.updates.length+'; tambah '+added+'/'+plan.inserts.length;
+  }
+  await loadStaffGuests();adminRenderSummary();adminRenderGuests();
+  status.textContent='Berhasil! '+updated+' tamu diperbarui dan '+added+' tamu ditambahkan. Status check-in lama dipertahankan.';
   ktExcelRows=[];document.getElementById('ktExcelFile').value='';
  }catch(e){
-  status.textContent='Import berhenti setelah '+completed+' tamu. '+e.message+'. Jangan ulangi sebelum refresh daftar tamu agar tidak duplikat.';
-  try{await loadStaffGuests()}catch(_){}
+  status.textContent='Proses terhenti setelah '+updated+' update dan '+added+' tamu baru. '+e.message+' Periksa data sebelum mencoba lagi.';
+  try{await loadStaffGuests();adminRenderSummary();adminRenderGuests();}catch(_){}
  }finally{btn.disabled=true;}
 }
 </script>
