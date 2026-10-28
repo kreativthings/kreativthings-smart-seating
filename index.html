@@ -567,7 +567,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
 </div>
  <div id="ktExcelImport" class="admin-editor hidden">
  <h2>Import Excel Daftar Tamu</h2>
- <p class="muted">Format: Nama Tamu / Grup, Kategori, Dewasa, Anak, Nomor Meja, Section. Data lama akan diperbarui berdasarkan nama, status check-in tetap aman.</p>
+ <p class="muted">Format: Nama Tamu / Grup, Kategori, Dewasa, Anak, Nomor Meja, Section. Nama sama di Excel boleh menjadi undangan terpisah jika belum ada di database. Status check-in lama tetap aman saat update.</p>
  <label for="ktExcelFile">Pilih file Excel (.xlsx atau .xls)</label>
  <input id="ktExcelFile" type="file" accept=".xlsx,.xls" onchange="ktReadExcel(this)">
  <p id="ktExcelInfo" role="status" class="muted"></p>
@@ -919,14 +919,13 @@ async function ktReadExcel(input){
   if(errors.length)throw Error(errors.slice(0,5).join('; '));
   if(!parsed.length)throw Error('Tidak ada tamu yang dapat dibaca.');
   if(parsed.length>1000)throw Error('Maksimal 1000 baris per import.');
-  // Block ambiguous duplicate names instead of silently choosing a record.
+  // Keep repeated names as separate invitations when the database is empty.
+  ktExcelRows=parsed;
+  const plan=ktExcelPlan();
   const counts=new Map();
   parsed.forEach(r=>{const k=ktExcelKey(r.guest_name);counts.set(k,(counts.get(k)||0)+1);});
   const dupes=[...counts].filter(([,n])=>n>1);
-  if(dupes.length)throw Error('Ada nama duplikat dalam Excel: '+dupes.slice(0,5).map(([n])=>n).join(', ')+'. Periksa dahulu agar tidak salah update.');
-  ktExcelRows=parsed;
-  const plan=ktExcelPlan();
-  status.textContent=plan.updates.length+' tamu akan diperbarui, '+plan.inserts.length+' tamu baru, '+plan.conflicts.length+' nama ambigu perlu diperiksa. Status check-in tidak diubah.';
+  status.textContent=plan.updates.length+' diperbarui, '+plan.inserts.length+' ditambahkan. '+(dupes.length?'Nama berulang dalam Excel: '+dupes.map(([n,c])=>n+' ('+c+')').join(', ')+'. ':'')+(plan.conflicts.length?'Ada pencocokan ambigu, tidak dapat import.':'Periksa preview sebelum konfirmasi.');
   const table=document.createElement('table');
   table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
   const head=document.createElement('tr');
@@ -943,16 +942,17 @@ async function ktReadExcel(input){
   btn.disabled=plan.conflicts.length>0;
  }catch(e){status.textContent='Gagal membaca file: '+e.message;}
 }
-function ktExcelKey(v){return String(v||'').trim().replace(/\\s+/g,' ').toLocaleLowerCase('id');}
+function ktExcelKey(v){return String(v||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('id');}
 function ktExcelPlan(){
- const existing=new Map();
+ const existing=new Map(), incoming=new Map();
  for(const g of staffGuests){const k=ktExcelKey(g.guest_name);if(!existing.has(k))existing.set(k,[]);existing.get(k).push(g);}
+ for(const r of ktExcelRows){const k=ktExcelKey(r.guest_name);incoming.set(k,(incoming.get(k)||0)+1);}
  const updates=[],inserts=[],conflicts=[];
  for(const row of ktExcelRows){
-  const matches=existing.get(ktExcelKey(row.guest_name))||[];
-  if(matches.length>1)conflicts.push(row.guest_name);
-  else if(matches.length===1)updates.push({row,record:matches[0]});
-  else inserts.push(row);
+  const key=ktExcelKey(row.guest_name),matches=existing.get(key)||[];
+  if(matches.length===0)inserts.push(row);
+  else if(matches.length===1&&incoming.get(key)===1)updates.push({row,record:matches[0]});
+  else conflicts.push(row.guest_name);
  }
  return {updates,inserts,conflicts};
 }
@@ -967,9 +967,9 @@ async function ktImportExcel(){
   // Always read the latest server state before matching names.
   await loadStaffGuests();
   const plan=ktExcelPlan();
-  if(plan.conflicts.length)throw Error('Ada nama yang muncul lebih dari sekali dalam database: '+plan.conflicts.slice(0,5).join(', ')+'. Periksa secara manual.');
+  if(plan.conflicts.length)throw Error('Pencocokan nama ambigu: '+[...new Set(plan.conflicts)].slice(0,5).join(', ')+'. Kosongkan database lama setelah backup, atau periksa nama secara manual.');
   status.textContent=plan.updates.length+' update, '+plan.inserts.length+' baru. Menunggu konfirmasi.';
-  if(!confirm('Update '+plan.updates.length+' tamu berdasarkan nama dan tambah '+plan.inserts.length+' tamu baru? Nama, kategori, pax, meja, dan section mengikuti Excel. Status check-in dipertahankan.'))return;
+  if(!confirm('Update '+plan.updates.length+' tamu dan tambah '+plan.inserts.length+' baris Excel sebagai undangan baru? Nama yang sama tetap menjadi baris terpisah. Data check-in yang sudah ada tidak diubah.'))return;
   for(const {row,record} of plan.updates){
    // PATCH only fields present in the guest schema. Never modify checked_in.
    const body={guest_name:row.guest_name,category:row.category,pax:row.pax,table_number:row.table_number,section:row.section};
