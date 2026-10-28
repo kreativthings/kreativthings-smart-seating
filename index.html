@@ -430,43 +430,53 @@ async function sbStaff(path,opts={}){
  return r.status===204?null:r.json();
 }
 async function loadStaffGuests(){
- staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in,arrived_pax&order=guest_name.asc&limit=1000');
+ staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in,arrived_pax,arrived_children&order=guest_name.asc&limit=1000');
  renderLiveStaff();
 }
 function renderLiveStaff(){
  let q=document.getElementById('staffquery').value.trim().toLowerCase();
  document.getElementById('checked').textContent=staffGuests.filter(g=>g.checked_in).length+'/'+staffGuests.length;
  document.getElementById('arrived').textContent=staffGuests.reduce((n,g)=>n+(Number(g.arrived_pax)||0),0);
+ const childTotal=staffGuests.reduce((n,g)=>n+(Number(g.arrived_children)||0),0);
+ const childSummary=document.getElementById('ktChildSummary');if(childSummary)childSummary.textContent=' (termasuk '+childTotal+' anak)';
  const list=staffGuests.filter(g=>String(g.guest_name||'').toLowerCase().includes(q)||String(g.table_number||'').toLowerCase().includes(q));
+ let summary=document.getElementById('ktChildSummary');if(!summary){summary=document.createElement('span');summary.id='ktChildSummary';document.getElementById('arrived').insertAdjacentElement('afterend',summary);}summary.textContent=' (termasuk '+childTotal+' anak)';
  const root=document.getElementById('staffrows');root.replaceChildren();
  for(const g of list){
   const wrap=document.createElement('div');wrap.className='result';wrap.style.flexWrap='wrap';
   const info=document.createElement('div');info.style.flex='1 1 180px';
   const title=document.createElement('b');title.textContent=g.guest_name;info.append(title,document.createElement('br'));
-  const detail=document.createElement('small');detail.textContent=(g.category||'')+' • Meja '+(g.table_number||'-')+' • Undangan '+(Number(g.pax)||0)+' pax • '+(g.checked_in?'✓ Hadir':'Belum check-in');info.append(detail);
+  const detail=document.createElement('small');detail.textContent=(g.category||'')+' • Meja '+(g.table_number||'-')+' • Undangan '+(Number(g.pax)||0)+' pax • '+(g.checked_in?'✓ Hadir ('+(Number(g.arrived_pax)||0)+' orang, '+(Number(g.arrived_children)||0)+' anak)':'Belum check-in');info.append(detail);
   const controls=document.createElement('div');controls.style.cssText='display:flex;align-items:end;gap:7px;flex-wrap:wrap';
   const field=document.createElement('div');const label=document.createElement('label');label.textContent='Pax hadir aktual';label.style.margin='0 0 3px';
   const input=document.createElement('input');input.type='number';input.min='0';input.max='999';input.step='1';input.value=String(Number(g.arrived_pax)||0);input.style.width='85px';input.setAttribute('aria-label','Pax hadir untuk '+g.guest_name);field.append(label,input);
+  const childField=document.createElement('div');const childLabel=document.createElement('label');childLabel.textContent='Anak hadir';childLabel.style.margin='0 0 3px';const childInput=document.createElement('input');childInput.type='number';childInput.min='0';childInput.max='999';childInput.step='1';childInput.value=String(Number(g.arrived_children)||0);childInput.style.width='85px';childInput.setAttribute('aria-label','Anak hadir untuk '+g.guest_name);childField.append(childLabel,childInput);
+  const childToggle=document.createElement('button');childToggle.type='button';childToggle.textContent='👶 Membawa Anak';childToggle.setAttribute('aria-pressed',String((Number(g.arrived_children)||0)>0));childToggle.style.cssText='align-self:end';
+  const childEnabled=(Number(g.arrived_children)||0)>0;childField.hidden=!childEnabled;
+  childToggle.onclick=()=>{const showing=childField.hidden;childField.hidden=!showing;childToggle.setAttribute('aria-pressed',String(showing));childToggle.textContent=showing?'✓ Membawa Anak':'👶 Membawa Anak';if(showing&&Number(childInput.value)===0)childInput.value='1';if(!showing)childInput.value='0';};
+  childToggle.textContent=childEnabled?'✓ Membawa Anak':'👶 Membawa Anak';
   const btn=document.createElement('button');btn.textContent='Simpan Kehadiran';btn.className='primary';
-  btn.onclick=()=>liveSaveAttendance(g.id,input,btn);
-  controls.append(field,btn);wrap.append(info,controls);root.append(wrap);
+  btn.onclick=()=>liveSaveAttendance(g.id,input,btn,childInput);
+  controls.append(field,childToggle,childField,btn);wrap.append(info,controls);root.append(wrap);
  }
  if(!list.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='Tidak ada tamu yang cocok.';root.append(msg);}
 }
-async function liveSaveAttendance(id,input,button){
+async function liveSaveAttendance(id,input,button,childInput){
  const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;
  const raw=input.value.trim(),count=Number(raw);
  if(raw===''||!Number.isInteger(count)||count<0||count>999){alert('Isi jumlah hadir 0–999 orang.');return;}
+ const childrenRaw=childInput&&!childInput.parentElement.hidden?childInput.value.trim():'0';const children=Number(childrenRaw);
+ if(childrenRaw===''||!Number.isInteger(children)||children<0||children>count){alert('Jumlah anak harus 0 sampai jumlah total yang hadir.');return;}
  if(count>Number(g.pax||0)&&!confirm('Pax hadir lebih besar dari jumlah undangan ('+g.pax+'). Tetap simpan?'))return;
  button.disabled=true;
  try{
-  await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({arrived_pax:count,checked_in:count>0})}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1)throw Error('Penyimpanan tidak terkonfirmasi.');});
+  await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({arrived_pax:count,arrived_children:children,checked_in:count>0})}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1)throw Error('Penyimpanan tidak terkonfirmasi.');});
   await loadStaffGuests();
   if(typeof adminRenderSummary==='function')adminRenderSummary();
  }catch(e){alert('Gagal menyimpan kehadiran: '+e.message);button.disabled=false;}
 }
 // Compatibility for any old check-in button references.
-async function liveCheck(id){const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;const input={value:String(g.checked_in?0:Number(g.pax)||1)};await liveSaveAttendance(id,input,{disabled:false});}
+async function liveCheck(id){const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;const input={value:String(g.checked_in?0:Number(g.pax)||1)};await liveSaveAttendance(id,input,{disabled:false},{value:'0'});}
 // Override legacy demo-only renderer when staff is logged in.
 renderStaff=function(){if(staffToken)renderLiveStaff();};
 // Staff can test real guest-name lookup after authentication; public visitors see demos only.
