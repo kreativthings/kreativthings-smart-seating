@@ -240,8 +240,19 @@ const REFERENCE_CORRIDORS={
   '65':{access:120,reference:'76'},'66':{access:120,reference:'76'},'67A':{access:120,reference:'76'},'67B':{access:120,reference:'76'},
   '36':{access:555,reference:'53'},'37':{access:555,reference:'53'},'38':{access:555,reference:'53'}
 };
+// Percobaan ballroom tanpa section: koridor utama sepanjang sisi bawah,
+// kemudian satu cabang vertikal menuju meja. Jalur ini hanya untuk preview;
+// Admin wajib memvalidasi bahwa koridor tidak memotong meja atau fasilitas.
+function ktNoSectionRoute(t){
+ const x=t.x*10,y=t.y*7.5;
+ const access=x>=760?940:x>=540?750:x>=330?555:x>=160?360:120;
+ const approach=Math.max(40,Math.min(695,y));
+ const side=x<access?x+30:x-30;
+ return [[940,720],[access,720],[access,approach],[side,approach]].filter((p,i,a)=>i===0||p[0]!==a[i-1][0]||p[1]!==a[i-1][1]);
+}
 function routeCoords(t){
  const x=t.x*10,y=t.y*7.5,s=sectionRoute(t),id=String(t.id).toUpperCase();
+ if(!s)return ktNoSectionRoute(t);
  const points=[[940,720]];
  const add=(a,b)=>{let last=points[points.length-1];if(Math.hypot(last[0]-a,last[1]-b)>1)points.push([a,b]);};
  const nearY=Math.max(60,Math.min(695,y));
@@ -303,7 +314,7 @@ function paintRoutes(svg,data,path,tableNo,admin){
  let t=data.find(o=>o.kind==='table'&&String(o.id).toLowerCase()===String(tableNo).toLowerCase());
  if(!t){if(admin){let label=node('text',{x:700,y:30,'font-size':15,fill:'#7d6b56'},'Pilih nomor meja untuk preview jalur');g.append(label)}return}
  let key=sectionRoute(t),coords=routeCoords(t);if(!coords.length)return;
- if(key.startsWith('F')){
+ if(String(key||'').startsWith('F')){
    [[590,'1'],[360,'2']].forEach(([sx,label])=>{
      g.append(node('circle',{cx:sx,cy:420,r:13,fill:'#fff8e9',stroke:'#b58b4b','stroke-width':2}));
      g.append(node('text',{x:sx,y:424,'font-size':11,'text-anchor':'middle',fill:'#795a27','font-weight':'bold'},label));
@@ -315,7 +326,7 @@ let pathStr=coords.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
  for(let i=1;i<coords.length;i++){let a=coords[i-1],b=coords[i],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<24)continue;let x=(a[0]+b[0])/2,y=(a[1]+b[1])/2,angle=Math.atan2(dy,dx)*180/Math.PI;g.append(node('path',{d:'M -8 -5 L 0 0 L -8 5',stroke:'#218769','stroke-width':3,fill:'none',transform:`translate(${x} ${y}) rotate(${angle})`}))}
  g.append(node('circle',{cx:940,cy:720,r:9,fill:'#218769',stroke:'#fff','stroke-width':3}));
  g.append(node('circle',{cx:t.x*10,cy:t.y*7.5,r:30,stroke:'#c79c48','stroke-width':5,fill:'none'}));
- g.append(node('text',{x:20,y:30,'font-size':15,fill:'#755d3c'},`Rute ${key} • demo belum divalidasi`));
+ g.append(node('text',{x:20,y:30,'font-size':15,fill:'#755d3c'},`Rute ${key||'tanpa section'} • demo belum divalidasi`));
 }
 function refreshMaps(){let svg=document.getElementById('map');let no=document.getElementById('route-table').value.trim();draw(svg,objects,no,true);paintRoutes(svg,objects,pathDraft,no,true);document.getElementById('route-status').textContent=no?(objects.some(o=>o.kind==='table'&&o.id.toLowerCase()===no.toLowerCase())?'Preset tersedia • belum divalidasi':'Meja tidak ditemukan'):'Preset A–F v17 tersedia';}
 // Keep preview route visible after dragging or editing.
