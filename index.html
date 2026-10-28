@@ -40,7 +40,7 @@
 <p class="muted" style="font-size:12px">Ukuran dan rotasi hanya mengubah tampilan objek, bukan kapasitas atau jalur tamu.</p>
 </div><div id="tableprops"><label>Kapasitas</label><input id="p-capacity" type="number" min="0" onchange="edit('capacity',Number(this.value))"><label>Section</label><select id="p-section" onchange="edit('section',this.value)"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select><label>Bentuk</label><select id="p-shape" onchange="edit('shape',this.value)"><option value="rect">Kotak</option><option value="long">Persegi panjang</option><option value="round">Bulat</option></select></div><button style="margin-top:14px" onclick="removeSelected()">Hapus objek</button></div><hr><div id="stats" class="muted"></div><label>Cari meja</label><input id="locate" placeholder="55A" oninput="selectByNumber(this.value)"><p class="muted" style="font-size:12px">Entrance demo di kanan bawah. Rute yang ditampilkan hanya melalui koridor yang sudah ditentukan dan tidak bertabrakan dengan meja.</p></aside></div>
 <div id="guests" class="panel hidden"><h2>Guest Assignment</h2><p class="muted">Nama tamu dari dua file Excel sudah disiapkan. Nomor meja boleh kosong. Simpan backup secara rutin; data browser tidak otomatis tersinkron.</p><div class="two"><div><label>Nama tamu</label><input id="newname" placeholder="Nama undangan"></div><div><label>Nomor meja (opsional)</label><input id="newtable" placeholder="55A"></div><div><label>Jumlah pax (opsional)</label><input id="newpax" type="number" min="1" value="2"></div></div><div class="toolbar" style="margin-top:13px"><button class="primary" onclick="addGuest()">Tambah Tamu</button><button onclick="document.getElementById('csvfile').click()">Import CSV</button><input hidden id="csvfile" type="file" accept=".csv,text/csv" onchange="importCSV(event)"><button onclick="downloadCSV()">Export CSV</button></div><div id="guestrows"></div></div>
-<div id="staff" class="panel hidden"><h2>Staff Registration • Supabase</h2><div class="metrics"><div class="metric"><small>Undangan check-in</small><strong id="checked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="arrived">0</strong></div></div><label>Cari nama atau nomor meja</label><input id="staffquery" placeholder="Ketik nama / meja" oninput="renderStaff()"><div id="staffrows"></div><div class="notice">Data check-in staf tersimpan di Supabase setelah login.</div></div>
+<div id="staff" class="panel hidden"><h2>Staff Registration • Supabase</h2><div class="metrics"><div class="metric"><small>Undangan check-in</small><strong id="checked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="arrived">0</strong></div></div><label>Cari nama atau nomor meja</label><input id="staffquery" placeholder="Ketik nama / meja" oninput="renderStaff()"><div id="staffrows"></div><div class="notice">Data check-in staf tersimpan di Supabase setelah login.</div></div>
 <div id="guest" class="panel hidden guest-shell"><div class="guest-top"><div class="guest-brand">KREATIVTHINGS <span>SMART SEATING</span></div><div class="guest-ornament">✦</div><h2 id="eventWelcomeTitle">Welcome to Our Engagement</h2><div id="eventCoupleNames" class="event-couple-names"></div><p>Find your seat with ease</p></div><div class="guest-inner"><div class="guest-search-card"><label for="guestquery">CARI NAMA UNDANGAN</label><div class="guest-search-row"><input id="guestquery" type="search" autocomplete="off" placeholder="Nama depan atau belakang..." oninput="renderGuest()" onkeydown="if(event.key==='Enter')searchPublicGuest()"><button type="button" onclick="document.getElementById('guestquery').value='';renderGuest();document.getElementById('guestquery').focus()" aria-label="Hapus pencarian">✕</button></div><p class="guest-hint">Cukup ketik nama depan atau nama belakang (minimal 3 huruf), lalu tekan Cari Nama.</p><button type="button" class="guest-route-button" onclick="searchPublicGuest()">Cari Nama</button></div><div id="guestresult" aria-live="polite"></div><div id="guestmapbox" class="hidden"><div class="guest-map-title">Petunjuk arah dari Entrance</div><p style="font-size:12px;text-align:center;color:#806044">← Geser denah ke kiri atau kanan →</p><div class="guest-map-scroll"><svg id="viewmap" viewBox="0 0 1000 750"></svg></div><button class="guest-back" onclick="document.getElementById('guestmapbox').classList.add('hidden');document.getElementById('guestquery').focus()">← Kembali ke hasil pencarian</button></div><p class="guest-footer">Need assistance? Please ask our Kreativthings crew.</p></div></div></div>
 <script>
 // === PENGATURAN ACARA KREATIVTHINGS ===
@@ -430,20 +430,43 @@ async function sbStaff(path,opts={}){
  return r.status===204?null:r.json();
 }
 async function loadStaffGuests(){
- staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in&order=guest_name.asc&limit=1000');
+ staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in,arrived_pax&order=guest_name.asc&limit=1000');
  renderLiveStaff();
 }
 function renderLiveStaff(){
  let q=document.getElementById('staffquery').value.trim().toLowerCase();
  document.getElementById('checked').textContent=staffGuests.filter(g=>g.checked_in).length+'/'+staffGuests.length;
- document.getElementById('arrived').textContent=staffGuests.filter(g=>g.checked_in).reduce((n,g)=>n+(Number(g.pax)||0),0);
- document.getElementById('staffrows').innerHTML=staffGuests.filter(g=>String(g.guest_name||'').toLowerCase().includes(q)||String(g.table_number||'').toLowerCase().includes(q)).map(g=>`<div class="result"><div><b>${esc(g.guest_name)}</b><br><small>${esc(g.category||'')} • Meja ${esc(g.table_number||'-')} • ${Number(g.pax)||0} pax • ${g.checked_in?'✓ Hadir':'Belum check-in'}</small></div><button data-id="${esc(g.id)}" onclick="liveCheck(this.dataset.id)">${g.checked_in?'Undo':'Check-in'}</button></div>`).join('')||'<p class="muted">Tidak ada tamu yang cocok.</p>';
+ document.getElementById('arrived').textContent=staffGuests.reduce((n,g)=>n+(Number(g.arrived_pax)||0),0);
+ const list=staffGuests.filter(g=>String(g.guest_name||'').toLowerCase().includes(q)||String(g.table_number||'').toLowerCase().includes(q));
+ const root=document.getElementById('staffrows');root.replaceChildren();
+ for(const g of list){
+  const wrap=document.createElement('div');wrap.className='result';wrap.style.flexWrap='wrap';
+  const info=document.createElement('div');info.style.flex='1 1 180px';
+  const title=document.createElement('b');title.textContent=g.guest_name;info.append(title,document.createElement('br'));
+  const detail=document.createElement('small');detail.textContent=(g.category||'')+' • Meja '+(g.table_number||'-')+' • Undangan '+(Number(g.pax)||0)+' pax • '+(g.checked_in?'✓ Hadir':'Belum check-in');info.append(detail);
+  const controls=document.createElement('div');controls.style.cssText='display:flex;align-items:end;gap:7px;flex-wrap:wrap';
+  const field=document.createElement('div');const label=document.createElement('label');label.textContent='Pax hadir aktual';label.style.margin='0 0 3px';
+  const input=document.createElement('input');input.type='number';input.min='0';input.max='999';input.step='1';input.value=String(Number(g.arrived_pax)||0);input.style.width='85px';input.setAttribute('aria-label','Pax hadir untuk '+g.guest_name);field.append(label,input);
+  const btn=document.createElement('button');btn.textContent='Simpan Kehadiran';btn.className='primary';
+  btn.onclick=()=>liveSaveAttendance(g.id,input,btn);
+  controls.append(field,btn);wrap.append(info,controls);root.append(wrap);
+ }
+ if(!list.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='Tidak ada tamu yang cocok.';root.append(msg);}
 }
-async function liveCheck(id){
+async function liveSaveAttendance(id,input,button){
  const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;
- try{await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({checked_in:!g.checked_in})});await loadStaffGuests();}
- catch(e){alert('Check-in gagal: '+e.message)}
+ const raw=input.value.trim(),count=Number(raw);
+ if(raw===''||!Number.isInteger(count)||count<0||count>999){alert('Isi jumlah hadir 0–999 orang.');return;}
+ if(count>Number(g.pax||0)&&!confirm('Pax hadir lebih besar dari jumlah undangan ('+g.pax+'). Tetap simpan?'))return;
+ button.disabled=true;
+ try{
+  await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({arrived_pax:count,checked_in:count>0})}).then(rows=>{if(!Array.isArray(rows)||rows.length!==1)throw Error('Penyimpanan tidak terkonfirmasi.');});
+  await loadStaffGuests();
+  if(typeof adminRenderSummary==='function')adminRenderSummary();
+ }catch(e){alert('Gagal menyimpan kehadiran: '+e.message);button.disabled=false;}
 }
+// Compatibility for any old check-in button references.
+async function liveCheck(id){const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;const input={value:String(g.checked_in?0:Number(g.pax)||1)};await liveSaveAttendance(id,input,{disabled:false});}
 // Override legacy demo-only renderer when staff is logged in.
 renderStaff=function(){if(staffToken)renderLiveStaff();};
 // Staff can test real guest-name lookup after authentication; public visitors see demos only.
@@ -552,7 +575,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
 <section id="adminDashboard" class="panel hidden">
  <h2>Admin Dashboard • Kreativthings</h2>
  <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Editor denah menyimpan draft dan publikasi secara online.</p>
- <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir</small><strong id="adminPax">0</strong></div></div>
+ <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="adminPax">0</strong></div></div>
  <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
  <h2>Tambah Tamu Baru</h2>
@@ -599,7 +622,7 @@ function ktAdminVisibility(){
 function adminRenderSummary(){
  document.getElementById('adminTotal').textContent=staffGuests.length;
  document.getElementById('adminChecked').textContent=staffGuests.filter(g=>g.checked_in).length;
- document.getElementById('adminPax').textContent=staffGuests.filter(g=>g.checked_in).reduce((s,g)=>s+(Number(g.pax)||0),0);
+ document.getElementById('adminPax').textContent=staffGuests.reduce((s,g)=>s+(Number(g.arrived_pax)||0),0);
 }
 function adminShowGuests(){
  if(!staffToken||!ktAdminRole)return;
