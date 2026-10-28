@@ -218,7 +218,7 @@ function guestDemo(name){document.getElementById('guestquery').value=name;render
  let directions=sec==='F3'?'Dari Entrance, ikuti koridor bawah menuju Tangga 2. Setelah naik, jalan lurus dahulu, kemudian belok kiri menuju meja.':sec==='F1'||sec==='F2'?'Dari Entrance, ikuti koridor bawah menuju Tangga 1, lanjut lurus, lalu menuju meja.':'Dari Entrance, ikuti koridor lantai bawah menuju meja.';
  out.innerHTML=`<div class="guest-seat"><small>SELAMAT DATANG, ${esc(g.name)}</small><div style="margin-top:15px;color:#99816a;font-size:12px;letter-spacing:.15em">NOMOR MEJA ANDA</div><h2>${esc(g.table)}</h2><div class="guest-section">Section ${esc(sec)} · ${up?'Level Atas':'Level Bawah'}</div><p style="font-size:13px;line-height:1.6;color:#78685a">${directions}</p><button class="guest-route-button" onclick="showGuestRoute('${esc(g.table)}')">Tampilkan Rute pada Denah</button></div>`;
 }
-function showGuestRoute(table){let box=document.getElementById('guestmapbox');box.classList.remove('hidden');draw(document.getElementById('viewmap'),published,table,false);paintRoutes(document.getElementById('viewmap'),published,publishedPath,table,false);box.scrollIntoView({behavior:'smooth',block:'start'});}
+function showGuestRoute(table){window.ktActiveGuestTable=table;let box=document.getElementById('guestmapbox');box.classList.remove('hidden');draw(document.getElementById('viewmap'),published,table,false);paintRoutes(document.getElementById('viewmap'),published,publishedPath,table,false);box.scrollIntoView({behavior:'smooth',block:'start'});}
 function download(name,text,type){let b=new Blob([text],{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}function downloadJSON(){download('kreativthings-backup-v17.json',JSON.stringify({version:5,objects,people,published,pathDraft,publishedPath},null,2),'application/json')}async function importBackup(e){let f=e.target.files[0];if(!f)return;try{let j=JSON.parse(await f.text());if(!Array.isArray(j.objects)||!Array.isArray(j.people))throw Error();objects=j.objects;people=j.people;published=Array.isArray(j.published)?j.published:j.objects;if(j.pathDraft&&Array.isArray(j.pathDraft.points)&&Array.isArray(j.pathDraft.edges))pathDraft=j.pathDraft;if(j.publishedPath&&Array.isArray(j.publishedPath.points)&&Array.isArray(j.publishedPath.edges))publishedPath=j.publishedPath;savePathDraft();publishPath();selected=-1;save();persistPeople();localStorage.setItem('kt4-published',JSON.stringify(published));draw(document.getElementById('map'),objects,'',true);showProps();stats();alert('Backup berhasil dimuat')}catch{alert('Format backup tidak valid')}}function csvEscape(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}function downloadCSV(){download('kreativthings-guests.csv','name,table,pax,checked\n'+people.map(g=>[g.name,g.table,g.pax??"",g.group||"",g.checked].map(csvEscape).join(',')).join('\n'),'text/csv')}function parseCSV(text){let rows=[],row=[],field='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=false;else field+=c}else if(c==='"')quoted=true;else if(c===','){row.push(field);field=''}else if(c==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field=''}else field+=c}if(field||row.length){row.push(field);rows.push(row)}return rows}async function importCSV(e){let f=e.target.files[0];if(!f)return;try{let lines=parseCSV(await f.text()),head=lines.shift().map(x=>x.trim().toLowerCase().replace(/^\ufeff/,''));if(!head.includes('name'))throw Error('Kolom name wajib ada');let incoming=lines.filter(r=>r.some(x=>x.trim())).map(r=>{let o=Object.fromEntries(head.map((h,i)=>[h,(r[i]||'').trim()]));return{name:o.name,table:o.table||'',pax:o.pax?Number(o.pax):null,group:o.group||'Import CSV',checked:false}});if(incoming.some(g=>!g.name||g.pax!==null&&(!Number.isInteger(g.pax)||g.pax<1)))throw Error('Ada nama atau pax tidak valid');if(!confirm('Tambahkan '+incoming.length+' undangan? Periksa duplikasi nama setelah import.'))return;people.push(...incoming);persistPeople();renderGuests();alert('Import selesai')}catch(err){alert(err.message||'CSV tidak valid')}}draw(document.getElementById('map'),objects,'',true);stats();renderGuests();renderGuest();</script><script>
 // Navigasi demo: koordinat denah 1000 x 750. Preset perlu divalidasi di venue.
 const PATH_KEY='kt17-path-draft', PUB_KEY='kt17-path-published';
@@ -578,7 +578,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
  </div>
  </div>
  <div id="adminGuestManager" class="hidden"><label for="adminSearch">Cari nama atau meja</label><input id="adminSearch" placeholder="Cari tamu..." oninput="adminRenderGuests()"><div id="adminGuestRows"></div><p class="notice">Perubahan nama, meja, dan pax akan disimpan ke Supabase hanya bila izin database Admin mengizinkan. Tombol check-in tetap tersedia di Staff Registration.</p></div>
- <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button></div><p id="adminEditStatus" role="status"></p></div>
+ <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button><button type="button" onclick="adminDeleteGuest()" style="color:#a12d2d;border-color:#c98f8f">Hapus Tamu</button></div><p id="adminEditStatus" role="status"></p></div>
  <p id="adminDashboardStatus" class="muted" role="status"></p>
 </section>
 <script>
@@ -683,6 +683,24 @@ async function adminSaveGuest(){
   await loadStaffGuests();adminRenderSummary();adminRenderGuests();adminCloseEditor();
   document.getElementById('adminDashboardStatus').textContent='Perubahan tamu berhasil disimpan online.';
  }catch(e){status.textContent='Gagal menyimpan: '+e.message;}
+}
+async function adminDeleteGuest(){
+ if(!staffToken||!ktAdminRole||ktEditingGuestId===null)return;
+ const g=staffGuests.find(x=>String(x.id)===String(ktEditingGuestId));
+ if(!g)return;
+ const status=document.getElementById('adminEditStatus');
+ if(!confirm('Hapus undangan "'+g.guest_name+'" dari daftar tamu online?\\n\\nMeja: '+(g.table_number||'-')+' | '+g.pax+' pax\\n\\nTindakan ini permanen, termasuk status check-in undangan tersebut.'))return;
+ const button=document.querySelector('#adminGuestEditor button[onclick="adminDeleteGuest()"]');
+ button.disabled=true;status.textContent='Menghapus tamu…';
+ try{
+  const result=await sbStaff('wedding_guests?id=eq.'+encodeURIComponent(g.id),{
+   method:'DELETE',headers:{Prefer:'return=representation'}});
+  if(!Array.isArray(result)||result.length!==1||String(result[0].id)!==String(g.id))
+   throw Error('Penghapusan tidak terkonfirmasi. Periksa izin DELETE pada RLS Admin.');
+  await loadStaffGuests();adminRenderSummary();adminRenderGuests();adminCloseEditor();
+  document.getElementById('adminDashboardStatus').textContent='Undangan "'+g.guest_name+'" berhasil dihapus dari Supabase.';
+ }catch(e){status.textContent='Gagal menghapus: '+e.message;}
+ finally{button.disabled=false;}
 }
 // Navigasi terpadu: setiap tombol membuka halaman yang benar, tanpa tab demo lama.
 function ktNavigate(page){
@@ -802,7 +820,7 @@ const KT_LAYOUT_TABLE='kt_seating_layouts?id=eq.1';
 function ktLayoutPayload(){return objects.map(o=>({...o}));}
 function ktApplyPublishedLayout(rows){
  const value=rows?.[0]?.published_layout;
- if(!Array.isArray(value)||!value.length)return;
+ if(!Array.isArray(value)||!value.length)throw Error('Denah published online kosong; tidak menggunakan denah bawaan sebagai pengganti.');
  published=value.filter(o=>o&&typeof o.id==='string'&&['table','facility'].includes(o.kind)&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>({...o}));
 }
 async function ktLoadPublishedLayout(){
@@ -810,7 +828,15 @@ async function ktLoadPublishedLayout(){
   const r=await fetch(SB_URL+'/rest/v1/kt_published_layout?select=published_layout&id=eq.1',{headers:{apikey:SB_KEY},cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   ktApplyPublishedLayout(await r.json());
- }catch(e){console.warn('Denah online belum tersedia:',e.message);}
+  const view=document.getElementById('viewmap');
+  if(view&&document.getElementById('guestmapbox')&&!document.getElementById('guestmapbox').classList.contains('hidden')){
+   const target=window.ktActiveGuestTable;
+   if(target)showGuestRoute(target);
+  }
+ }catch(e){console.warn('Denah online belum tersedia:',e.message);
+  const status=document.getElementById('adminDashboardStatus');
+  if(status)status.textContent='Perhatian: denah online gagal dimuat ('+e.message+'). Jangan publish denah bawaan.';
+ }
 }
 async function ktLoadLayoutDraft(){
  if(!staffToken||!ktAdminRole)return;
