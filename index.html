@@ -422,7 +422,7 @@ async function staffSignIn(){
   await loadPublishedEventSettings();document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
  }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
 }
-function staffSignOut(){ktClearSession();document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
+function staffSignOut(){ktStaffReturnButton.hidden=true;ktClearSession();document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
 async function sbStaff(path,opts={}){
  if(!staffToken)throw Error('Silakan login kembali.');
  const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,...(opts.headers||{})}});
@@ -517,11 +517,26 @@ showGuestTable=function(i){
 };
 function openStaffGuestPreview(){
  if(!staffToken)return openStaffLogin();
- document.getElementById('staff').classList.add('hidden');
+ // Melihat denah bukan logout: sesi dan halaman Staff tetap tersedia.
+ document.body.classList.remove('kt-admin-layout');
+ document.getElementById('admin').classList.add('hidden');
  document.getElementById('guest').classList.remove('hidden');
+ document.getElementById('staff').classList.remove('hidden');
  document.getElementById('guestquery').value='';renderGuest();
- document.getElementById('guest').scrollIntoView({behavior:'smooth'});
+ ktStaffReturnButton.hidden=false;
+ document.getElementById('guest').scrollIntoView({behavior:'smooth',block:'start'});
 }
+const ktStaffReturnButton=document.createElement('button');
+ktStaffReturnButton.type='button';
+ktStaffReturnButton.textContent='← Kembali ke Staff Check-in';
+ktStaffReturnButton.hidden=true;
+ktStaffReturnButton.onclick=()=>{
+ document.getElementById('guest').classList.add('hidden');
+ document.getElementById('staff').classList.remove('hidden');
+ ktStaffReturnButton.hidden=true;
+ document.getElementById('staff').scrollIntoView({behavior:'smooth',block:'start'});
+};
+document.getElementById('guest').prepend(ktStaffReturnButton);
 const staffPreviewBtn=document.createElement('button');staffPreviewBtn.textContent='Lihat pencarian & denah di bawah ↓';staffPreviewBtn.onclick=openStaffGuestPreview;
 document.querySelector('#staff .metrics').after(staffPreviewBtn);
 const refreshBtn=document.createElement('button');refreshBtn.textContent='↻ Refresh status check-in';refreshBtn.onclick=async()=>{try{await loadStaffGuests();staffStatus('Status tamu diperbarui dari Supabase.')}catch(e){staffStatus('Refresh gagal: '+e.message)}};document.querySelector('#staff .metrics').after(refreshBtn);
@@ -764,8 +779,8 @@ function ktNavigate(page){
   if(!ktAdminRole){alert('Daftar Tamu Online hanya untuk Admin.');return;}
   document.getElementById('adminDashboard').classList.remove('hidden');
   adminShowGuests();
- }else if(page==='staff'){renderLiveStaff();document.getElementById('staff').scrollIntoView({behavior:'smooth'});}
- else if(page==='guest'){renderGuest();document.getElementById('guest').scrollIntoView({behavior:'smooth'});}
+ }else if(page==='staff'){ktStaffReturnButton.hidden=true;renderLiveStaff();document.getElementById('staff').scrollIntoView({behavior:'smooth'});}
+ else if(page==='guest'){ktStaffReturnButton.hidden=false;renderGuest();document.getElementById('guest').scrollIntoView({behavior:'smooth'});}
 }
 for(const [id,page] of [['tab-admin','admin'],['tab-guests','guests'],['tab-staff','staff'],['tab-guest','guest']]){
  const btn=document.getElementById(id);if(btn)btn.onclick=()=>ktNavigate(page);
