@@ -448,24 +448,37 @@ function renderLiveStaff(){
   const title=document.createElement('b');title.textContent=g.guest_name;info.append(title,document.createElement('br'));
   const detail=document.createElement('small');detail.textContent=(g.category||'')+' • Meja '+(g.table_number||'-')+' • Undangan '+(Number(g.pax)||0)+' pax • '+(g.checked_in?'✓ Hadir ('+(Number(g.arrived_pax)||0)+' orang, '+(Number(g.arrived_children)||0)+' anak)':'Belum check-in');info.append(detail);
   const controls=document.createElement('div');controls.style.cssText='display:flex;align-items:end;gap:7px;flex-wrap:wrap';
-  const field=document.createElement('div');const label=document.createElement('label');label.textContent='Pax hadir aktual';label.style.margin='0 0 3px';
-  const input=document.createElement('input');input.type='number';input.min='0';input.max='999';input.step='1';input.value=String(Number(g.arrived_pax)||0);input.style.width='85px';input.setAttribute('aria-label','Pax hadir untuk '+g.guest_name);field.append(label,input);
-  const childField=document.createElement('div');const childLabel=document.createElement('label');childLabel.textContent='Anak hadir';childLabel.style.margin='0 0 3px';const childInput=document.createElement('input');childInput.type='number';childInput.min='0';childInput.max='999';childInput.step='1';childInput.value=String(Number(g.arrived_children)||0);childInput.style.width='85px';childInput.setAttribute('aria-label','Anak hadir untuk '+g.guest_name);childField.append(childLabel,childInput);
-  const childToggle=document.createElement('button');childToggle.type='button';childToggle.textContent='👶 Membawa Anak';childToggle.setAttribute('aria-pressed',String((Number(g.arrived_children)||0)>0));childToggle.style.cssText='align-self:end';
+  const counter=(labelText,value,min,max)=>{
+   const field=document.createElement('div');field.style.cssText='display:flex;flex-direction:column;gap:4px';
+   const label=document.createElement('label');label.textContent=labelText;label.style.margin='0';
+   const group=document.createElement('div');group.style.cssText='display:flex;align-items:center;gap:5px';
+   const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.style.cssText='min-width:42px;min-height:42px;font-size:23px';
+   const display=document.createElement('output');display.textContent=String(value);display.style.cssText='min-width:30px;text-align:center;font-weight:700;font-size:20px';
+   const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.style.cssText='min-width:42px;min-height:42px;font-size:23px';
+   const input={get value(){return display.textContent},set value(v){display.textContent=String(v)}};
+   minus.onclick=()=>{input.value=Math.max(min,Number(input.value)-1)};
+   plus.onclick=()=>{input.value=Math.min(max,Number(input.value)+1)};
+   group.append(minus,display,plus);field.append(label,group);return {field,input};
+  };
+  const total=counter('Total hadir',Number(g.arrived_pax)||0,0,999);const field=total.field,input=total.input;
+  const child=counter('Jumlah anak',Number(g.arrived_children)||0,0,999);const childField=child.field,childInput=child.input;
+  const childToggle=document.createElement('button');childToggle.type='button';childToggle.style.cssText='align-self:end;min-height:42px';
   const childEnabled=(Number(g.arrived_children)||0)>0;childField.hidden=!childEnabled;
   childToggle.onclick=()=>{const showing=childField.hidden;childField.hidden=!showing;childToggle.setAttribute('aria-pressed',String(showing));childToggle.textContent=showing?'✓ Membawa Anak':'👶 Membawa Anak';if(showing&&Number(childInput.value)===0)childInput.value='1';if(!showing)childInput.value='0';};
-  childToggle.textContent=childEnabled?'✓ Membawa Anak':'👶 Membawa Anak';
-  const btn=document.createElement('button');btn.textContent='Simpan Kehadiran';btn.className='primary';
-  btn.onclick=()=>liveSaveAttendance(g.id,input,btn,childInput);
-  controls.append(field,childToggle,childField,btn);wrap.append(info,controls);root.append(wrap);
+  childToggle.setAttribute('aria-pressed',String(childEnabled));childToggle.textContent=childEnabled?'✓ Membawa Anak':'👶 Membawa Anak';
+  const btn=document.createElement('button');btn.textContent='Simpan Kehadiran';btn.className='primary';btn.style.minHeight='42px';
+  btn.onclick=()=>liveSaveAttendance(g.id,input,btn,childInput,childField);
+  const undo=document.createElement('button');undo.type='button';undo.textContent='↶ Undo Check-in';undo.style.minHeight='42px';undo.disabled=!(g.checked_in||Number(g.arrived_pax)>0);
+  undo.onclick=async()=>{if(!confirm('Batalkan check-in '+g.guest_name+' dan kembalikan jumlah hadir serta anak menjadi 0?'))return;undo.disabled=true;await liveSaveAttendance(g.id,{value:'0'},undo,{value:'0'},null);};
+  controls.append(field,childToggle,childField,btn,undo);wrap.append(info,controls);root.append(wrap);
  }
  if(!list.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='Tidak ada tamu yang cocok.';root.append(msg);}
 }
-async function liveSaveAttendance(id,input,button,childInput){
+async function liveSaveAttendance(id,input,button,childInput,childField){
  const g=staffGuests.find(x=>String(x.id)===String(id));if(!g)return;
- const raw=input.value.trim(),count=Number(raw);
+ const raw=String(input.value).trim(),count=Number(raw);
  if(raw===''||!Number.isInteger(count)||count<0||count>999){alert('Isi jumlah hadir 0–999 orang.');return;}
- const childrenRaw=childInput&&!childInput.parentElement.hidden?childInput.value.trim():'0';const children=Number(childrenRaw);
+ const childrenRaw=childInput&&(!childField||!childField.hidden)?String(childInput.value).trim():'0';const children=Number(childrenRaw);
  if(childrenRaw===''||!Number.isInteger(children)||children<0||children>count){alert('Jumlah anak harus 0 sampai jumlah total yang hadir.');return;}
  if(count>Number(g.pax||0)&&!confirm('Pax hadir lebih besar dari jumlah undangan ('+g.pax+'). Tetap simpan?'))return;
  button.disabled=true;
