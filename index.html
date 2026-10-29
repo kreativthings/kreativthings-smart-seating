@@ -647,12 +647,13 @@ body.kt-admin-layout #staffPortal{display:none!important}
   <button id="adminDeleteAllButton" type="button" onclick="adminDeleteAllGuests()" style="color:#a12d2d;border-color:#c98f8f">Hapus Semua Data Tamu</button>
   <p id="adminDeleteAllStatus" role="status"></p>
  </div>
+ <style>.kt-password-wrap{display:flex;align-items:stretch;gap:8px;max-width:100%}.kt-password-wrap input{flex:1;min-width:0}.kt-password-toggle{white-space:nowrap;flex-shrink:0;padding:8px 10px;font-size:13px}</style>
  <div class="admin-editor" id="adminChangeStaffPasswordPanel">
   <h3>🔒 Ganti Password Akun Staff</h3>
   <p class="muted">Hanya Admin. Masukkan email akun Staff yang sudah terdaftar, bukan email Admin. Minimal 8 karakter. Tidak perlu email pemulihan.</p>
   <label for="adminPasswordEmail">Email Staff</label><input id="adminPasswordEmail" type="email" autocomplete="off" placeholder="email staff terdaftar">
-  <label for="adminPasswordNew">Password baru</label><input id="adminPasswordNew" type="password" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter">
-  <label for="adminPasswordConfirm">Konfirmasi password baru</label><input id="adminPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ulangi password">
+  <label for="adminPasswordNew">Password baru</label><div class="kt-password-wrap"><input id="adminPasswordNew" type="password" autocomplete="new-password" minlength="8" placeholder="Minimal 8 karakter"><button type="button" class="kt-password-toggle" aria-controls="adminPasswordNew" aria-pressed="false" onclick="ktTogglePassword('adminPasswordNew',this)">👁 Lihat</button></div>
+  <label for="adminPasswordConfirm">Konfirmasi password baru</label><div class="kt-password-wrap"><input id="adminPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ulangi password"><button type="button" class="kt-password-toggle" aria-controls="adminPasswordConfirm" aria-pressed="false" onclick="ktTogglePassword('adminPasswordConfirm',this)">👁 Lihat</button></div>
   <button id="adminPasswordButton" type="button" class="primary" onclick="adminChangeStaffPassword()">Simpan Password Staff</button>
   <p id="adminPasswordStatus" role="status"></p>
  </div>
@@ -662,6 +663,11 @@ body.kt-admin-layout #staffPortal{display:none!important}
 // Admin role is read from Supabase Auth app_metadata, not a local toggle.
 // Supabase RLS remains the authority for all database writes.
 let ktAdminRole=false,ktEditingGuestId=null;
+function ktTogglePassword(id,btn){
+ const el=document.getElementById(id);if(!el)return;
+ const visible=el.type==='password';el.type=visible?'text':'password';
+ btn.textContent=visible?'🙈 Sembunyikan':'👁 Lihat';btn.setAttribute('aria-pressed',String(visible));
+}
 async function adminChangeStaffPassword(){
  const status=document.getElementById('adminPasswordStatus');
  const button=document.getElementById('adminPasswordButton');
