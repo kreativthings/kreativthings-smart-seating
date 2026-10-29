@@ -658,6 +658,12 @@ body.kt-admin-layout #staffPortal{display:none!important}
  </div>
  <div id="adminGuestManager" class="hidden"><label for="adminSearch">Cari nama atau meja</label><input id="adminSearch" placeholder="Cari tamu..." oninput="adminRenderGuests()"><div id="adminGuestRows"></div><p class="notice">Perubahan nama, meja, dan pax akan disimpan ke Supabase hanya bila izin database Admin mengizinkan. Tombol check-in tetap tersedia di Staff Registration.</p></div>
  <div id="adminGuestEditor" class="admin-editor hidden"><h2>Edit Undangan</h2><label>Nama undangan</label><input id="adminEditName"><label>Meja</label><input id="adminEditTable"><label>Pax</label><input id="adminEditPax" type="number" min="1"><div class="admin-actions"><button class="primary" onclick="adminSaveGuest()">Simpan Online</button><button onclick="adminCloseEditor()">Batal</button><button type="button" onclick="adminDeleteGuest()" style="color:#a12d2d;border-color:#c98f8f">Hapus Tamu</button></div><p id="adminEditStatus" role="status"></p></div>
+ <div class="admin-editor" id="adminDeleteAllPanel" style="border-color:#d6a1a1">
+  <h3 style="margin-top:0;color:#a12d2d">Kosongkan Daftar Tamu Online</h3>
+  <p class="muted">Hanya menghapus data di <b>wedding_guests</b>, termasuk jumlah hadir dan check-in. Denah, pengaturan acara, dan akun login tidak dihapus. Backup data terlebih dahulu.</p>
+  <button id="adminDeleteAllButton" type="button" onclick="adminDeleteAllGuests()" style="color:#a12d2d;border-color:#c98f8f">Hapus Semua Data Tamu</button>
+  <p id="adminDeleteAllStatus" role="status"></p>
+ </div>
  <p id="adminDashboardStatus" class="muted" role="status"></p>
 </section>
 <script>
@@ -674,6 +680,37 @@ function ktAdminVisibility(){
  document.getElementById('adminDashboard').classList.toggle('hidden',!staffToken||!ktAdminRole);
  document.getElementById('eventSettingsButton').classList.toggle('hidden',!staffToken||!ktAdminRole);
  if(!ktAdminRole)document.getElementById('eventSettings').classList.add('hidden');
+}
+async function adminDeleteAllGuests(){
+ const status=document.getElementById('adminDeleteAllStatus');
+ const button=document.getElementById('adminDeleteAllButton');
+ if(!staffToken||!ktAdminRole){status.textContent='Hanya Admin yang boleh menghapus seluruh daftar tamu.';return;}
+ const count=staffGuests.length;
+ if(!count){status.textContent='Daftar tamu sudah kosong.';return;}
+ if(!confirm('PERINGATAN: Hapus SEMUA '+count+' undangan online beserta data check-in?\n\nDenah dan akun login tidak ikut dihapus. Pastikan backup sudah disimpan.'))return;
+ const typed=prompt('Konfirmasi terakhir: ketik HAPUS SEMUA untuk menghapus '+count+' undangan.');
+ if(typed!=='HAPUS SEMUA'){status.textContent='Dibatalkan. Data tamu tidak dihapus.';return;}
+ button.disabled=true;
+ status.textContent='Menghapus data tamu online… Jangan tutup halaman.';
+ try{
+  // Only target known guest IDs, never an unfiltered delete request.
+  const ids=staffGuests.map(g=>String(g.id));
+  for(let i=0;i<ids.length;i+=50){
+   const batch=ids.slice(i,i+50);
+   const values=batch.map(id=>'"'+id.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"').join(',');
+   const deleted=await sbStaff('wedding_guests?id=in.('+encodeURIComponent(values)+')',{
+    method:'DELETE',headers:{Prefer:'return=representation'}});
+   if(!Array.isArray(deleted)||deleted.length!==batch.length)throw Error('Sebagian data tidak terhapus. Cek izin RLS Admin dan jumlah data tersisa.');
+   status.textContent='Terhapus '+Math.min(i+batch.length,ids.length)+' dari '+ids.length+' undangan…';
+  }
+  await loadStaffGuests();
+  adminRenderSummary();adminRenderGuests();
+  if(staffGuests.length)throw Error('Masih ada '+staffGuests.length+' undangan. Periksa data terbaru sebelum melanjutkan.');
+  status.textContent='Berhasil! Daftar tamu online sudah kosong. Denah dan akun tetap aman.';
+ }catch(e){
+  status.textContent='Proses belum tuntas: '+e.message+' Refresh daftar sebelum mencoba lagi.';
+  try{await loadStaffGuests();adminRenderSummary();adminRenderGuests();}catch(_e){}
+ }finally{button.disabled=false;}
 }
 function adminRenderSummary(){
  document.getElementById('adminTotal').textContent=staffGuests.length;
