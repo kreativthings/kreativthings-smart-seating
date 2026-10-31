@@ -392,7 +392,7 @@ async function saveEventSettings(){
 }
 
 </script>
-<section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
+<section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><div class="kt-password-wrap"><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><button type="button" class="kt-password-toggle" aria-controls="staffPassword" aria-pressed="false" onclick="ktTogglePassword('staffPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
 <script>
 // Only demo guests are searchable publicly. Never put a full guest list in browser storage.
 people=[];
@@ -615,7 +615,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <h2>Admin Dashboard • Kreativthings</h2>
  <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Editor denah menyimpan draft dan publikasi secara online.</p>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="adminPax">0</strong></div></div>
- <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
+ <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button id="adminExportButton" onclick="adminExportGuests()">⬇ Export Daftar Tamu (CSV)</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
  <h2>Tambah Tamu Baru</h2>
  <p class="muted">Data akan disimpan online di Supabase dan dapat dicari oleh staf maupun tamu melalui QR.</p>
@@ -647,7 +647,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
   <button id="adminDeleteAllButton" type="button" onclick="adminDeleteAllGuests()" style="color:#a12d2d;border-color:#c98f8f">Hapus Semua Data Tamu</button>
   <p id="adminDeleteAllStatus" role="status"></p>
  </div>
- <style>.kt-password-wrap{display:flex;align-items:stretch;gap:8px;max-width:100%}.kt-password-wrap input{flex:1;min-width:0}.kt-password-toggle{white-space:nowrap;flex-shrink:0;padding:8px 10px;font-size:13px}</style>
+ 
  <div class="admin-editor" id="adminChangeStaffPasswordPanel">
   <h3>🔒 Ganti Password Akun Staff</h3>
   <p class="muted">Hanya Admin. Masukkan email akun Staff yang sudah terdaftar, bukan email Admin. Minimal 8 karakter. Tidak perlu email pemulihan.</p>
@@ -733,6 +733,35 @@ async function adminDeleteAllGuests(){
   status.textContent='Proses belum tuntas: '+e.message+' Refresh daftar sebelum mencoba lagi.';
   try{await loadStaffGuests();adminRenderSummary();adminRenderGuests();}catch(_e){}
  }finally{button.disabled=false;}
+}
+async function adminExportGuests(){
+ const status=document.getElementById('adminDashboardStatus');
+ const button=document.getElementById('adminExportButton');
+ if(!staffToken||!ktAdminRole){status.textContent='Export hanya untuk Admin.';return;}
+ button.disabled=true;status.textContent='Mengambil seluruh data tamu terbaru dari Supabase…';
+ try{
+  const fields=['id','guest_name','category','pax','table_number','section','checked_in','arrived_pax','arrived_children'];
+  const all=[];const pageSize=500;
+  for(let offset=0;;offset+=pageSize){
+   const page=await sbStaff('wedding_guests?select='+fields.join(',')+'&order=id.asc&limit='+pageSize+'&offset='+offset);
+   if(!Array.isArray(page))throw Error('Respons data tamu tidak valid.');
+   all.push(...page);
+   if(page.length<pageSize)break;
+   if(offset>=100000)throw Error('Jumlah data terlalu besar; export dihentikan untuk keamanan.');
+  }
+  const headers=['ID Database','Nama Tamu','Kategori','Pax Undangan','Nomor Meja','Section','Check-in','Pax Hadir','Anak Hadir','Dewasa Hadir'];
+  const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=all.map(g=>[g.id,g.guest_name,g.category,g.pax,g.table_number,g.section,g.checked_in?'Ya':'Tidak',g.arrived_pax??0,g.arrived_children??0,Math.max(0,(Number(g.arrived_pax)||0)-(Number(g.arrived_children)||0))]);
+  const csv='\ufeff'+[headers,...rows].map(row=>row.map(quote).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;link.download='Kreativthings_Daftar_Tamu_Online_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  status.textContent='Export '+all.length+' undangan selesai. File CSV tersimpan di perangkat. Data online tidak berubah.';
+ }catch(e){status.textContent='Export gagal: '+e.message;}
+ finally{button.disabled=false;}
 }
 function adminRenderSummary(){
  document.getElementById('adminTotal').textContent=staffGuests.length;
