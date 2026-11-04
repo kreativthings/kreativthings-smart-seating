@@ -614,6 +614,14 @@ body.kt-admin-layout #staffPortal{display:none!important}
 <section id="adminDashboard" class="panel hidden">
  <h2>Admin Dashboard • Kreativthings</h2>
  <p class="muted">Khusus akun Admin. Data tamu dan check-in menggunakan Supabase. Editor denah menyimpan draft dan publikasi secara online.</p>
+ <div class="admin-editor" id="ktEventManager" style="margin:16px 0;padding:16px;border:1px solid #e7ddd1;border-radius:12px;background:#fcfaf7">
+ <h2>Daftar Wedding / Event</h2>
+ <p class="muted">Tahap 1 Multi-Event: daftar dan pembuatan event. Data tamu, denah, dan Staff Aktif belum dipindahkan; jangan gunakan event baru untuk registrasi sebelum pemisahan database selesai.</p>
+ <div class="toolbar"><button type="button" onclick="ktFetchEvents()">↻ Refresh Daftar Event</button><button type="button" class="primary" onclick="document.getElementById('ktEventCreateForm').classList.toggle('hidden')">+ New Wedding</button></div>
+ <div id="ktEventCreateForm" class="hidden" style="padding:12px;border:1px solid #e7ddd1;border-radius:10px">
+ <div class="two"><div><label>Nama Event</label><input id="ktNewEventName" maxlength="160" placeholder="Wedding Daniel & Jessica"></div><div><label>Nama Pasangan</label><input id="ktNewCoupleName" maxlength="160" placeholder="Daniel & Jessica"></div><div><label>Tanggal Acara</label><input id="ktNewEventDate" type="date"></div><div><label>Jenis Acara</label><select id="ktNewEventType"><option value="Wedding">Wedding</option><option value="Engagement">Engagement</option></select></div></div>
+ <div class="toolbar" style="margin-top:12px"><button id="ktCreateEventButton" type="button" class="primary" onclick="ktCreateEvent()">Simpan Event</button><button type="button" onclick="document.getElementById('ktEventCreateForm').classList.add('hidden')">Batal</button></div></div>
+ <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div></div>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="adminPax">0</strong></div></div>
  <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button id="adminExportButton" onclick="adminExportGuests()">⬇ Export Daftar Tamu (CSV)</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
@@ -1037,6 +1045,45 @@ async function ktPublishLayoutOnline(){
  }
 }
 ktLoadPublishedLayout();
+</script>
+
+<script>
+// Multi-event phase 1: registry only. Deliberately does NOT change active guest/layout queries.
+async function ktFetchEvents(){
+ const status=document.getElementById('ktEventStatus'),root=document.getElementById('ktEventList');
+ if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin untuk melihat daftar event.';return;}
+ status.textContent='Memuat daftar event…';
+ try{
+  const rows=await sbStaff('kt_events?select=id,event_name,couple_name,event_date,event_type,status&order=event_date.asc&limit=500');
+  root.replaceChildren();
+  for(const e of rows){
+   const box=document.createElement('div');box.className='result';
+   const info=document.createElement('div');
+   const name=document.createElement('b');name.textContent=e.event_name||e.couple_name||'Tanpa nama';
+   const meta=document.createElement('small');meta.textContent=[e.couple_name,e.event_date,e.event_type,e.status].filter(Boolean).join(' • ');
+   info.append(name,document.createElement('br'),meta);box.append(info);root.append(box);
+  }
+  status.textContent=rows.length+' event terdaftar. Pemilihan event aktif akan tersedia setelah isolasi data per event selesai.';
+ }catch(err){status.textContent='Gagal memuat event: '+err.message;}
+}
+async function ktCreateEvent(){
+ const status=document.getElementById('ktEventStatus'),button=document.getElementById('ktCreateEventButton');
+ if(!staffToken||!ktAdminRole){status.textContent='Hanya Admin yang dapat membuat event.';return;}
+ const event_name=document.getElementById('ktNewEventName').value.trim();
+ const couple_name=document.getElementById('ktNewCoupleName').value.trim();
+ const event_date=document.getElementById('ktNewEventDate').value;
+ const event_type=document.getElementById('ktNewEventType').value;
+ if(!event_name||!couple_name||!event_date){status.textContent='Isi nama event, nama pasangan, dan tanggal acara.';return;}
+ if(!confirm('Buat event '+event_name+'? Event baru belum aktif untuk Staff dan belum memiliki data tamu.'))return;
+ button.disabled=true;status.textContent='Menyimpan event…';
+ try{
+  const rows=await sbStaff('kt_events',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({event_name,couple_name,event_date,event_type,status:'draft'})});
+  if(!Array.isArray(rows)||rows.length!==1)throw Error('Event tidak terkonfirmasi tersimpan.');
+  document.getElementById('ktEventCreateForm').classList.add('hidden');
+  status.textContent='Event berhasil dibuat.';await ktFetchEvents();
+ }catch(err){status.textContent='Gagal membuat event: '+err.message;}
+ finally{button.disabled=false;}
+}
 </script>
 </html>
 
