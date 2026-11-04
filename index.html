@@ -622,6 +622,9 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <div class="two"><div><label>Nama Event</label><input id="ktNewEventName" maxlength="160" placeholder="Wedding Daniel & Jessica"></div><div><label>Nama Pasangan</label><input id="ktNewCoupleName" maxlength="160" placeholder="Daniel & Jessica"></div><div><label>Tanggal Acara</label><input id="ktNewEventDate" type="date"></div><div><label>Jenis Acara</label><select id="ktNewEventType"><option value="Wedding">Wedding</option><option value="Engagement">Engagement</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button id="ktCreateEventButton" type="button" class="primary" onclick="ktCreateEvent()">Simpan Event</button><button type="button" onclick="document.getElementById('ktEventCreateForm').classList.add('hidden')">Batal</button></div></div>
  <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div></div>
+ <div style="margin:14px 0"><button type="button" id="ktLegacyToggle" aria-expanded="false" aria-controls="ktLegacyEventData" onclick="ktToggleLegacyEventData()">▸ Tampilkan Data Event Sebelumnya</button><p class="muted" style="font-size:12px;margin:8px 0">Data event sebelumnya disembunyikan agar dashboard lebih rapi. Tidak ada data yang dihapus.</p></div>
+ <div id="ktLegacyEventData" class="hidden">
+ <div class="notice">Data tamu dan denah di bawah ini masih menggunakan database lama bersama. Jangan gunakan untuk event baru sampai pemisahan per event selesai.</div>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="adminPax">0</strong></div></div>
  <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button id="adminExportButton" onclick="adminExportGuests()">⬇ Export Daftar Tamu (CSV)</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
@@ -664,6 +667,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
   <label for="adminPasswordConfirm">Konfirmasi password baru</label><div class="kt-password-wrap"><input id="adminPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ulangi password"><button type="button" class="kt-password-toggle" aria-controls="adminPasswordConfirm" aria-pressed="false" onclick="ktTogglePassword('adminPasswordConfirm',this)">👁 Lihat</button></div>
   <button id="adminPasswordButton" type="button" class="primary" onclick="adminChangeStaffPassword()">Simpan Password Staff</button>
   <p id="adminPasswordStatus" role="status"></p>
+ </div>
  </div>
  <p id="adminDashboardStatus" class="muted" role="status"></p>
 </section>
@@ -1048,6 +1052,15 @@ ktLoadPublishedLayout();
 </script>
 
 <script>
+// Hide legacy event information by default; does not change or delete any records.
+function ktToggleLegacyEventData(){
+ const panel=document.getElementById('ktLegacyEventData');
+ const button=document.getElementById('ktLegacyToggle');
+ const opening=panel.classList.contains('hidden');
+ panel.classList.toggle('hidden',!opening);
+ button.setAttribute('aria-expanded',String(opening));
+ button.textContent=opening?'▾ Sembunyikan Data Event Sebelumnya':'▸ Tampilkan Data Event Sebelumnya';
+}
 // Multi-event phase 1: registry only. Deliberately does NOT change active guest/layout queries.
 async function ktFetchEvents(){
  const status=document.getElementById('ktEventStatus'),root=document.getElementById('ktEventList');
