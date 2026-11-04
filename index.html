@@ -1248,3 +1248,77 @@ async function ktImportExcel(){
  }finally{btn.disabled=true;}
 }
 </script>
+
+<style id="kt-exclusive-screen-style">
+/* Tampilan eksklusif per mode; tidak mengubah data Supabase maupun rute. */
+body.kt-screen-admin #staff,body.kt-screen-admin #guest,body.kt-screen-admin #admin,body.kt-screen-admin #guests{display:none!important}
+body.kt-screen-staff #adminDashboard,body.kt-screen-staff #guest,body.kt-screen-staff #admin,body.kt-screen-staff #guests{display:none!important}
+body.kt-screen-guest #adminDashboard,body.kt-screen-guest #staff,body.kt-screen-guest #admin,body.kt-screen-guest #guests{display:none!important}
+body.kt-screen-layout #adminDashboard,body.kt-screen-layout #staff,body.kt-screen-layout #guest,body.kt-screen-layout #guests{display:none!important}
+body.kt-screen-layout #admin{display:grid!important}
+body.kt-screen-admin #adminDashboard{display:block!important}
+body.kt-screen-staff #staff{display:block!important}
+body.kt-screen-guest #guest{display:block!important}
+body.kt-screen-admin #staffPortal,body.kt-screen-staff #staffPortal,body.kt-screen-layout #staffPortal{display:none!important}
+body.kt-screen-admin #staffLogin,body.kt-screen-staff #staffLogin,body.kt-screen-layout #staffLogin{display:none!important}
+body.kt-screen-admin #ktScreenNav,body.kt-screen-staff #ktScreenNav,body.kt-screen-guest.kt-authenticated #ktScreenNav,body.kt-screen-layout #ktScreenNav{display:flex!important}
+#ktScreenNav{display:none;max-width:760px;margin:12px auto;padding:0 12px;gap:8px;flex-wrap:wrap}
+#ktScreenNav button{font-size:14px}
+#ktScreenNav button.kt-current{background:#65503e;color:#fff}
+@media(max-width:760px){body.kt-screen-layout #admin{display:block!important}}
+</style>
+<script id="kt-exclusive-screen-script">
+(function(){
+ const nav=document.createElement('div');nav.id='ktScreenNav';nav.setAttribute('aria-label','Navigasi Smart Seating');
+ nav.innerHTML='<button type="button" data-screen="admin">Dashboard Admin</button><button type="button" data-screen="staff">Staff Check-in</button><button type="button" data-screen="guest">Guest View</button><button type="button" data-screen="layout">Edit Denah</button><button type="button" data-screen="logout">Logout</button>';
+ document.getElementById('adminDashboard').before(nav);
+ function showScreen(screen){
+  if(!staffToken&&screen!=='guest')screen='guest';
+  if(!ktAdminRole&&(screen==='admin'||screen==='layout'))screen='staff';
+  document.body.classList.remove('kt-screen-admin','kt-screen-staff','kt-screen-guest','kt-screen-layout','kt-admin-layout');
+  document.body.classList.add('kt-screen-'+screen);
+  document.body.classList.toggle('kt-authenticated',!!staffToken);
+  document.getElementById('adminDashboard').classList.toggle('hidden',screen!=='admin');
+  document.getElementById('staff').classList.toggle('hidden',screen!=='staff');
+  document.getElementById('guest').classList.toggle('hidden',screen!=='guest');
+  document.getElementById('admin').classList.toggle('hidden',screen!=='layout');
+  document.getElementById('guests').classList.add('hidden');
+  document.getElementById('eventSettings').classList.add('hidden');
+  ktStaffReturnButton.hidden=true;
+  nav.querySelectorAll('[data-screen]').forEach(b=>{
+   const target=b.dataset.screen;
+   b.classList.toggle('kt-current',target===screen);
+   b.hidden=(target==='admin'||target==='layout')&&!ktAdminRole;
+  });
+  if(screen==='staff')renderLiveStaff();
+  if(screen==='guest')renderGuest();
+  if(screen==='layout'){ktLoadLayoutDraft();}
+  window.scrollTo({top:0,behavior:'instant'});
+ }
+ window.ktShowScreen=showScreen;
+ nav.addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-screen]');if(!btn)return;
+  const screen=btn.dataset.screen;
+  if(screen==='logout'){staffSignOut();return;}
+  showScreen(screen);
+ });
+ // Dipanggil setelah role Admin diverifikasi, baik login maupun pemulihan sesi.
+ const originalVisibility=ktAdminVisibility;
+ ktAdminVisibility=function(){
+  originalVisibility();
+  showScreen(staffToken?(ktAdminRole?'admin':'staff'):'guest');
+ };
+ const originalNavigate=ktNavigate;
+ ktNavigate=function(page){
+  if(!staffToken){openStaffLogin();return;}
+  if(page==='guests'){if(!ktAdminRole)return;showScreen('admin');if(document.getElementById('ktLegacyEventData').classList.contains('hidden'))ktToggleLegacyEventData();adminShowGuests();return;}
+  showScreen(page==='admin'?'layout':page);
+ };
+ adminOpenLayout=function(){if(staffToken&&ktAdminRole)showScreen('layout');};
+ adminBackToStaff=function(){showScreen(ktAdminRole?'admin':'staff');};
+ const oldSignOut=staffSignOut;
+ staffSignOut=function(){oldSignOut();showScreen('guest');};
+ // Login pertama kali tetap memakai alur Supabase yang sudah ada.
+ showScreen('guest');
+})();
+</script>
