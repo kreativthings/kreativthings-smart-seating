@@ -1090,7 +1090,7 @@ async function ktCreateEvent(){
  if(!confirm('Buat event '+event_name+'? Event baru belum aktif untuk Staff dan belum memiliki data tamu.'))return;
  button.disabled=true;status.textContent='Menyimpan event…';
  try{
-  const rows=await sbStaff('kt_events',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({event_name,couple_name,event_date,event_type,status:'draft'})});
+  const rows=await sbStaff('kt_events',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({event_name,couple_name,event_date,event_type,status:'preparation'})});
   if(!Array.isArray(rows)||rows.length!==1)throw Error('Event tidak terkonfirmasi tersimpan.');
   document.getElementById('ktEventCreateForm').classList.add('hidden');
   status.textContent='Event berhasil dibuat.';await ktFetchEvents();
