@@ -392,7 +392,7 @@ async function saveEventSettings(){
 }
 
 </script>
-<section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Gunakan akun staf Supabase Auth yang sudah dibuat oleh admin. Jangan gunakan password akun dashboard Supabase.</p><label>Email staf</label><input id="staffEmail" type="email" autocomplete="username" placeholder="email staf"><label>Password</label><div class="kt-password-wrap"><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><button type="button" class="kt-password-toggle" aria-controls="staffPassword" aria-pressed="false" onclick="ktTogglePassword('staffPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
+<section id="staffLogin" class="panel hidden"><h2>Staff Login • Kreativthings</h2><p class="muted">Staff baru login dengan username. Admin dan akun lama tetap dapat login menggunakan email.</p><label>Username / Email</label><input id="staffEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="fery atau email staf"><label>Password</label><div class="kt-password-wrap"><input id="staffPassword" type="password" autocomplete="current-password" placeholder="Password"><button type="button" class="kt-password-toggle" aria-controls="staffPassword" aria-pressed="false" onclick="ktTogglePassword('staffPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button class="primary" onclick="staffSignIn()">Login</button><button onclick="staffSignOut()">Logout / Tutup</button></div><div id="staffStatus" role="status"></div></section>
 <script>
 // Only demo guests are searchable publicly. Never put a full guest list in browser storage.
 people=[];
@@ -409,9 +409,11 @@ let staffToken=null,staffGuests=[];
 let ktLastLoginSession=null;
 const staffStatus=t=>document.getElementById('staffStatus').textContent=t;
 function openStaffLogin(){document.getElementById('staffLogin').classList.remove('hidden');document.getElementById('staffLogin').scrollIntoView({behavior:'smooth'});}
+const KT_STAFF_DOMAIN='staff.kreativthings.example';
+function ktLoginIdentity(v){if(v.includes('@'))return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)?v:'';return /^[a-z][a-z0-9._-]{2,31}$/.test(v)?v+'@'+KT_STAFF_DOMAIN:'';}
 async function staffSignIn(){
- const email=document.getElementById('staffEmail').value.trim(),password=document.getElementById('staffPassword').value;
- if(!email||!password){staffStatus('Isi email dan password staf.');return;}
+ const identifier=document.getElementById('staffEmail').value.trim().toLowerCase(),email=ktLoginIdentity(identifier),password=document.getElementById('staffPassword').value;
+ if(!email||!password){staffStatus('Isi username/email dan password. Username menggunakan 3–32 huruf kecil, angka, titik, garis bawah, atau tanda minus.');return;}
  staffStatus('Sedang login…');
  try{
   const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
@@ -624,18 +626,20 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div>
  <div style="border-top:1px solid #e7ddd1;margin-top:18px;padding-top:16px">
  <div style="border-bottom:1px solid #e7ddd1;margin-bottom:18px;padding-bottom:18px">
- <h2>Tambah Staff Baru</h2>
- <p class="muted">Admin mengirim undangan ke email Staff baru. Staff membuat password melalui tautan email. Email yang sudah terdaftar dapat langsung dipakai pada bagian Penugasan di bawah.</p>
- <div class="two"><div><label for="ktInviteName">Nama Staff</label><input id="ktInviteName" maxlength="120" autocomplete="name" placeholder="Nama lengkap"></div><div><label for="ktInviteEmail">Email Staff Baru</label><input id="ktInviteEmail" type="email" maxlength="254" autocomplete="off" placeholder="nama@email.com"></div></div>
- <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktInviteButton" onclick="ktInviteStaff()">+ Kirim Undangan Staff</button></div>
- <p id="ktInviteStatus" class="muted" role="status">Fitur ini memerlukan Edge Function kt-invite-staff yang sudah di-deploy di Supabase.</p>
+ <h2>Tambah Staff Baru — Username</h2>
+ <p class="muted">Tidak memerlukan email. Buat username unik dan password berbeda untuk setiap Staff. Password tidak disimpan atau ditampilkan kembali oleh aplikasi.</p>
+ <div class="two"><div><label for="ktInviteName">Nama Staff</label><input id="ktInviteName" maxlength="120" autocomplete="off" placeholder="Nama lengkap"></div><div><label for="ktInviteUsername">Username</label><input id="ktInviteUsername" maxlength="32" autocomplete="off" autocapitalize="none" placeholder="contoh: fery"></div></div>
+ <label for="ktInvitePassword">Password Staff (minimal 12 karakter)</label><div class="kt-password-wrap"><input id="ktInvitePassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" placeholder="Password unik untuk Staff"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktInvitePassword',this)">👁 Lihat</button></div>
+ <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktInviteButton" onclick="ktCreateUsernameStaff()">+ Buat Akun Staff</button></div>
+ <p id="ktInviteStatus" class="muted" role="status">Memerlukan Edge Function kt-manage-staff yang sudah di-deploy. Jangan gunakan sebelum backend siap.</p>
+ <details style="margin-top:15px"><summary style="cursor:pointer">Reset Password Staff</summary><p class="muted">Admin dapat mengganti password Staff yang sudah ada. Gunakan password berbeda untuk setiap Staff.</p><label for="ktResetUsername">Username Staff</label><input id="ktResetUsername" autocomplete="off" placeholder="fery"><label for="ktResetPassword">Password Baru (minimal 12 karakter)</label><div class="kt-password-wrap"><input id="ktResetPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktResetPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button type="button" onclick="ktResetUsernamePassword()">Reset Password</button></div><p id="ktResetStatus" class="muted" role="status"></p></details>
  </div>
  <h2>Penugasan Wedding Aktif untuk Staff</h2>
  <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
- <div class="two"><div><label for="ktAssignStaffId">Email Staff terdaftar</label><input id="ktAssignStaffId" placeholder="nama@email.com" type="email" autocomplete="off"></div>
+ <div class="two"><div><label for="ktAssignStaffId">Username atau Email Staff</label><input id="ktAssignStaffId" placeholder="fery atau nama@email.com" type="text" autocapitalize="none" autocomplete="off"></div>
  <div><label for="ktAssignEventId">Wedding yang ditugaskan</label><select id="ktAssignEventId"><option value="">Refresh daftar event dahulu</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktAssignButton" onclick="ktAssignStaffActiveEvent()">Simpan Penugasan</button><button type="button" onclick="ktReadStaffAssignment()">Periksa Penugasan Staff</button></div>
- <p id="ktAssignStatus" class="muted" role="status">Masukkan email Staff terdaftar, lalu pilih wedding.</p>
+ <p id="ktAssignStatus" class="muted" role="status">Masukkan username Staff (atau email untuk akun lama), lalu pilih wedding.</p>
  </div></div>
  <div style="margin:14px 0"><button type="button" id="ktLegacyToggle" aria-expanded="false" aria-controls="ktLegacyEventData" onclick="ktToggleLegacyEventData()">▸ Tampilkan Data Event Sebelumnya</button><p class="muted" style="font-size:12px;margin:8px 0">Data event sebelumnya disembunyikan agar dashboard lebih rapi. Tidak ada data yang dihapus.</p></div>
  <div id="ktLegacyEventData" class="hidden">
@@ -1117,38 +1121,41 @@ async function ktCreateEvent(){
  }catch(err){status.textContent='Gagal membuat event: '+err.message;}
  finally{button.disabled=false;}
 }
-async function ktInviteStaff(){
+async function ktManageStaffRequest(action,username,password,name){
+ if(!staffToken||!ktAdminRole)throw Error('Login sebagai Admin terlebih dahulu.');
+ const response=await fetch(SB_URL+'/functions/v1/kt-manage-staff',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,'Content-Type':'application/json'},body:JSON.stringify({action,username,password,name})});
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok||!result.ok)throw Error(result.error||'HTTP '+response.status+'. Periksa deployment kt-manage-staff.');
+ return result;
+}
+async function ktCreateUsernameStaff(){
  const status=document.getElementById('ktInviteStatus'),button=document.getElementById('ktInviteButton');
- if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin terlebih dahulu.';return;}
- const name=document.getElementById('ktInviteName').value.trim();
- const email=document.getElementById('ktInviteEmail').value.trim().toLowerCase();
- if(name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-  status.textContent='Isi nama Staff dan alamat email yang valid.';return;
- }
- if(!confirm('Kirim undangan Staff baru ke '+email+'?'))return;
- button.disabled=true;status.textContent='Mengirim undangan…';
- try{
-  const response=await fetch(SB_URL+'/functions/v1/kt-invite-staff',{
-   method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,'Content-Type':'application/json'},
-   body:JSON.stringify({name,email})
-  });
-  const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(result.error||'HTTP '+response.status+'. Pastikan Edge Function sudah di-deploy.');
-  status.textContent=result.message||'Undangan diproses. Staff perlu mengaktifkan akun dari email.';
-  document.getElementById('ktAssignStaffId').value=email;
-  document.getElementById('ktInviteName').value='';document.getElementById('ktInviteEmail').value='';
- }catch(e){status.textContent='Gagal mengirim undangan: '+e.message;}
+ const name=document.getElementById('ktInviteName').value.trim(),username=document.getElementById('ktInviteUsername').value.trim().toLowerCase(),password=document.getElementById('ktInvitePassword').value;
+ if(name.length<2||!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<12){status.textContent='Isi nama, username 3–32 karakter, dan password minimal 12 karakter.';return;}
+ if(!confirm('Buat akun Staff dengan username '+username+'? Pastikan password sudah dicatat secara aman oleh Admin.'))return;
+ button.disabled=true;status.textContent='Membuat akun…';
+ try{const result=await ktManageStaffRequest('create',username,password,name);status.textContent=result.message||'Akun Staff berhasil dibuat.';document.getElementById('ktAssignStaffId').value=username;document.getElementById('ktInvitePassword').value='';}
+ catch(e){status.textContent='Gagal: '+e.message;}
  finally{button.disabled=false;}
+}
+async function ktResetUsernamePassword(){
+ const status=document.getElementById('ktResetStatus'),username=document.getElementById('ktResetUsername').value.trim().toLowerCase(),password=document.getElementById('ktResetPassword').value;
+ if(!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<12){status.textContent='Isi username dan password baru minimal 12 karakter.';return;}
+ if(!confirm('Ganti password untuk '+username+'? Password sebelumnya tidak dapat dipakai lagi untuk login baru.'))return;
+ status.textContent='Memproses reset…';
+ try{const result=await ktManageStaffRequest('reset',username,password,'');status.textContent=result.message||'Password berhasil diganti.';document.getElementById('ktResetPassword').value='';}
+ catch(e){status.textContent='Gagal: '+e.message;}
 }
 // Admin-only assignment. The RLS policy on kt_staff_active_event is the authority.
 async function ktStaffUUID(){
- const email=document.getElementById('ktAssignStaffId').value.trim().toLowerCase();
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Masukkan alamat email Staff yang valid.');
+ const identity=document.getElementById('ktAssignStaffId').value.trim().toLowerCase();
+ const email=ktLoginIdentity(identity);
+ if(!email)throw Error('Masukkan username Staff atau email akun lama yang valid.');
  const rows=await sbStaff('rpc/kt_lookup_staff_by_email',{
   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_email:email})
  });
  if(!Array.isArray(rows)||rows.length!==1||!rows[0].staff_user_id)
-  throw Error('Email belum terdaftar sebagai Staff. Undang dan aktifkan akun terlebih dahulu.');
+  throw Error('Akun Staff belum ditemukan. Buat akun username dahulu atau gunakan email akun lama.');
  return rows[0].staff_user_id;
 }
 async function ktReadStaffAssignment(){
@@ -1157,7 +1164,7 @@ async function ktReadStaffAssignment(){
  try{
   const id=await ktStaffUUID();
   const rows=await sbStaff('kt_staff_active_event?select=staff_user_id,event_id&staff_user_id=eq.'+encodeURIComponent(id));
-  if(!rows.length){status.textContent='Email Staff ini belum memiliki penugasan aktif.';return;}
+  if(!rows.length){status.textContent='Staff ini belum memiliki penugasan aktif.';return;}
   const chooser=document.getElementById('ktAssignEventId');chooser.value=rows[0].event_id;
   const selected=chooser.selectedOptions[0];
   status.textContent='Penugasan saat ini: '+(selected&&selected.value?selected.textContent:rows[0].event_id)+'.';
