@@ -621,7 +621,15 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <div id="ktEventCreateForm" class="hidden" style="padding:12px;border:1px solid #e7ddd1;border-radius:10px">
  <div class="two"><div><label>Nama Event</label><input id="ktNewEventName" maxlength="160" placeholder="Wedding Daniel & Jessica"></div><div><label>Nama Pasangan</label><input id="ktNewCoupleName" maxlength="160" placeholder="Daniel & Jessica"></div><div><label>Tanggal Acara</label><input id="ktNewEventDate" type="date"></div><div><label>Jenis Acara</label><select id="ktNewEventType"><option value="Wedding">Wedding</option><option value="Engagement">Engagement</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button id="ktCreateEventButton" type="button" class="primary" onclick="ktCreateEvent()">Simpan Event</button><button type="button" onclick="document.getElementById('ktEventCreateForm').classList.add('hidden')">Batal</button></div></div>
- <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div></div>
+ <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div>
+ <div style="border-top:1px solid #e7ddd1;margin-top:18px;padding-top:16px">
+ <h2>Penugasan Wedding Aktif untuk Staff</h2>
+ <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
+ <div class="two"><div><label for="ktAssignStaffId">Staff User ID (UUID dari Supabase Authentication)</label><input id="ktAssignStaffId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off"></div>
+ <div><label for="ktAssignEventId">Wedding yang ditugaskan</label><select id="ktAssignEventId"><option value="">Refresh daftar event dahulu</option></select></div></div>
+ <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktAssignButton" onclick="ktAssignStaffActiveEvent()">Simpan Penugasan</button><button type="button" onclick="ktReadStaffAssignment()">Periksa Penugasan Staff</button></div>
+ <p id="ktAssignStatus" class="muted" role="status">Masukkan User ID Staff, lalu pilih wedding.</p>
+ </div></div>
  <div style="margin:14px 0"><button type="button" id="ktLegacyToggle" aria-expanded="false" aria-controls="ktLegacyEventData" onclick="ktToggleLegacyEventData()">▸ Tampilkan Data Event Sebelumnya</button><p class="muted" style="font-size:12px;margin:8px 0">Data event sebelumnya disembunyikan agar dashboard lebih rapi. Tidak ada data yang dihapus.</p></div>
  <div id="ktLegacyEventData" class="hidden">
  <div class="notice">Data tamu dan denah di bawah ini masih menggunakan database lama bersama. Jangan gunakan untuk event baru sampai pemisahan per event selesai.</div>
@@ -1076,7 +1084,12 @@ async function ktFetchEvents(){
    const meta=document.createElement('small');meta.textContent=[e.couple_name,e.event_date,e.event_type,e.status].filter(Boolean).join(' • ');
    info.append(name,document.createElement('br'),meta);box.append(info);root.append(box);
   }
-  status.textContent=rows.length+' event terdaftar. Pemilihan event aktif akan tersedia setelah isolasi data per event selesai.';
+  const chooser=document.getElementById('ktAssignEventId');
+  const previous=chooser.value;chooser.replaceChildren();
+  const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Pilih wedding';chooser.append(placeholder);
+  for(const e of rows){const option=document.createElement('option');option.value=e.id;option.textContent=(e.event_name||e.couple_name||'Event')+(e.event_date?' — '+e.event_date:'');chooser.append(option);}
+  if(rows.some(e=>e.id===previous))chooser.value=previous;
+  status.textContent=rows.length+' event terdaftar. Penugasan Staff tersedia; data tamu dan denah event baru belum dipisahkan.';
  }catch(err){status.textContent='Gagal memuat event: '+err.message;}
 }
 async function ktCreateEvent(){
@@ -1095,6 +1108,49 @@ async function ktCreateEvent(){
   document.getElementById('ktEventCreateForm').classList.add('hidden');
   status.textContent='Event berhasil dibuat.';await ktFetchEvents();
  }catch(err){status.textContent='Gagal membuat event: '+err.message;}
+ finally{button.disabled=false;}
+}
+// Admin-only assignment. The RLS policy on kt_staff_active_event is the authority.
+function ktStaffUUID(){
+ const id=document.getElementById('ktAssignStaffId').value.trim();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error('Staff User ID harus UUID lengkap dari Supabase Authentication.');
+ return id;
+}
+async function ktReadStaffAssignment(){
+ const status=document.getElementById('ktAssignStatus');
+ if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin dahulu.';return;}
+ try{
+  const id=ktStaffUUID();
+  const rows=await sbStaff('kt_staff_active_event?select=staff_user_id,event_id,updated_at&staff_user_id=eq.'+encodeURIComponent(id));
+  if(!rows.length){status.textContent='Staff ini belum memiliki penugasan aktif.';return;}
+  const chooser=document.getElementById('ktAssignEventId');chooser.value=rows[0].event_id;
+  const selected=chooser.selectedOptions[0];
+  status.textContent='Penugasan saat ini: '+(selected&&selected.value?selected.textContent:rows[0].event_id)+'.';
+ }catch(e){status.textContent='Gagal memeriksa penugasan: '+e.message;}
+}
+async function ktAssignStaffActiveEvent(){
+ const status=document.getElementById('ktAssignStatus'),button=document.getElementById('ktAssignButton');
+ if(!staffToken||!ktAdminRole){status.textContent='Hanya Admin yang dapat menugaskan Staff.';return;}
+ let id;try{id=ktStaffUUID();}catch(e){status.textContent=e.message;return;}
+ const eventId=document.getElementById('ktAssignEventId').value;
+ if(!eventId){status.textContent='Pilih wedding terlebih dahulu.';return;}
+ const label=document.getElementById('ktAssignEventId').selectedOptions[0].textContent;
+ if(!confirm('Tugaskan Staff '+id+' ke '+label+'?\n\nIni hanya menyimpan penugasan, BELUM mengganti data tamu/denah yang digunakan aplikasi.'))return;
+ button.disabled=true;status.textContent='Menyimpan penugasan…';
+ try{
+  // Read first to avoid relying on an unverified ON CONFLICT constraint.
+  const path='kt_staff_active_event?staff_user_id=eq.'+encodeURIComponent(id);
+  const existing=await sbStaff(path+'&select=staff_user_id,event_id');
+  const payload={event_id:eventId};
+  let rows;
+  if(existing.length){
+   rows=await sbStaff(path,{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(payload)});
+  }else{
+   rows=await sbStaff('kt_staff_active_event',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({staff_user_id:id,...payload})});
+  }
+  if(!Array.isArray(rows)||rows.length!==1||rows[0].event_id!==eventId)throw Error('Database belum mengonfirmasi penugasan. Periksa policy dan struktur tabel.');
+  status.textContent='Penugasan berhasil disimpan: '+label+'. Data tamu dan denah belum dialihkan.';
+ }catch(e){status.textContent='Penugasan gagal: '+e.message;}
  finally{button.disabled=false;}
 }
 </script>
