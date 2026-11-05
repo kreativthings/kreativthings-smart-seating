@@ -60,6 +60,7 @@ function updateEventHeading(){
 }
 updateEventHeading();
 async function loadPublishedEventSettings(){
+ if(!ktPublicEventId())return;
  const status=document.getElementById('eventSettingsStatus');
  try{
   const r=await fetch(SB_URL+'/rest/v1/kt_event_settings?id=eq.1&select=event_type,couple_names',{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},cache:'no-store'});
@@ -379,7 +380,7 @@ async function saveEventSettings(){
  if(!confirm('Publish '+eventType+' — '+coupleNames+' untuk SEMUA tamu yang membuka QR?'))return;
  status.textContent='Sedang mempublikasikan…';
  try{
-  const r=await fetch(SB_URL+'/rest/v1/kt_event_settings?id=eq.1',{
+  const r=await fetch(SB_URL+'/rest/v1/kt_event_settings?event_id=eq.'+encodeURIComponent(ktRequireEvent()),{
    method:'PATCH',headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,'Content-Type':'application/json',Prefer:'return=representation'},
    body:JSON.stringify({event_type:eventType,couple_names:coupleNames})
   });
@@ -419,7 +420,8 @@ async function staffSignIn(){
   const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const j=await r.json();if(!r.ok||!j.access_token)throw Error(j.msg||j.error_description||j.message||'Login gagal');
   staffToken=j.access_token;ktSaveSession(j);document.getElementById('staffPassword').value='';
-  await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
+  ktAdminRole=await ktGetAdminRole(staffToken);if(!ktAdminRole)await ktResolveStaffEvent();
+  if(!ktAdminRole)await loadStaffGuests();document.getElementById('staff').classList.remove('hidden');
   document.getElementById('guest').classList.remove('hidden');previewNotice.classList.add('hidden');renderGuest();
   await loadPublishedEventSettings();document.getElementById('eventSettingsButton').classList.remove('hidden');staffStatus('Login berhasil. '+staffGuests.length+' undangan terbaca dari Supabase.');document.getElementById('staff').scrollIntoView({behavior:'smooth'});
  }catch(e){staffToken=null;staffStatus('Gagal: '+e.message)}
@@ -428,11 +430,18 @@ async function staffSignIn(){
 function staffSignOut(){ktStaffReturnButton.hidden=true;ktClearSession();document.getElementById('eventSettings').classList.add('hidden');document.getElementById('eventSettingsButton').classList.add('hidden');staffToken=null;staffGuests=[];document.getElementById('staff').classList.add('hidden');document.getElementById('guest').classList.remove('hidden');document.getElementById('staffLogin').classList.add('hidden');previewNotice.classList.add('hidden');document.getElementById('guestquery').value='';renderGuest();staffStatus('');}
 async function sbStaff(path,opts={}){
  if(!staffToken)throw Error('Silakan login kembali.');
+ if(path.startsWith('wedding_guests')){
+  const eventId=ktRequireEvent();
+  const method=(opts.method||'GET').toUpperCase();
+  if(method==='POST'){const payload=JSON.parse(opts.body||'{}');opts={...opts,body:JSON.stringify((Array.isArray(payload)?payload:[payload]).map(x=>({...x,event_id:eventId})).length&&Array.isArray(payload)?payload.map(x=>({...x,event_id:eventId})):{...payload,event_id:eventId})};}
+  else{path+=(path.includes('?')?'&':'?')+'event_id=eq.'+encodeURIComponent(eventId);}
+ }
  const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,...(opts.headers||{})}});
  if(!r.ok){let t=await r.text();throw Error('Supabase '+r.status+': '+t.slice(0,200));}
  return r.status===204?null:r.json();
 }
 async function loadStaffGuests(){
+ ktRequireEvent();
  staffGuests=await sbStaff('wedding_guests?select=id,guest_name,category,pax,table_number,section,checked_in,arrived_pax,arrived_children&order=guest_name.asc&limit=1000');
  renderLiveStaff();
 }
@@ -558,6 +567,8 @@ renderGuest=function(){
 };
 async function searchPublicGuest(){
  if(staffToken){staffGuestRenderer();return;}
+ const outGuard=document.getElementById('guestresult');if(!ktPublicEventId()){outGuard.textContent='Link wedding belum lengkap. Hubungi Kreativthings untuk QR yang benar.';return;}
+ if(ktPublicEventId()!==KT_LEGACY_EVENT_ID){outGuard.textContent='Pencarian tamu untuk wedding ini belum diaktifkan sampai layanan pencarian aman mendukung filter event.';return;}
  const q=document.getElementById('guestquery').value.trim();
  const out=document.getElementById('guestresult');
  if(q.length<3){out.innerHTML='<div class="notice">Ketik minimal 3 huruf.</div>';return;}
@@ -635,15 +646,16 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <details style="margin-top:15px"><summary style="cursor:pointer">Reset Password Staff</summary><p class="muted">Admin dapat mengganti password Staff yang sudah ada. Gunakan password berbeda untuk setiap Staff.</p><label for="ktResetUsername">Username Staff</label><input id="ktResetUsername" autocomplete="off" placeholder="fery"><label for="ktResetPassword">Password Baru (minimal 8 karakter)</label><div class="kt-password-wrap"><input id="ktResetPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktResetPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button type="button" onclick="ktResetUsernamePassword()">Reset Password</button></div><p id="ktResetStatus" class="muted" role="status"></p></details>
  </div>
  <h2>Penugasan Wedding Aktif untuk Staff</h2>
- <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
+ <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan menentukan wedding yang dapat diakses Staff saat login.</p>
  <div class="two"><div><label for="ktAssignStaffId">Username atau Email Staff</label><input id="ktAssignStaffId" placeholder="fery atau nama@email.com" type="text" autocapitalize="none" autocomplete="off"></div>
  <div><label for="ktAssignEventId">Wedding yang ditugaskan</label><select id="ktAssignEventId"><option value="">Refresh daftar event dahulu</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktAssignButton" onclick="ktAssignStaffActiveEvent()">Simpan Penugasan</button><button type="button" onclick="ktReadStaffAssignment()">Periksa Penugasan Staff</button></div>
  <p id="ktAssignStatus" class="muted" role="status">Masukkan username Staff (atau email untuk akun lama), lalu pilih wedding.</p>
  </div></div>
+ <div class="admin-editor" id="ktActiveEventPanel"><h2>Wedding yang Sedang Dikelola</h2><p class="muted">Pilih event sebelum membuka daftar tamu atau mengedit denah. Semua penyimpanan ditujukan hanya ke event terpilih.</p><select id="ktAdminActiveEvent" onchange="ktSelectAdminEvent(this.value)"><option value="">Pilih wedding terlebih dahulu</option></select><p id="ktActiveEventStatus" class="muted" role="status">Belum ada wedding dipilih.</p><button type="button" onclick="ktCopyGuestLink()">Salin Link Guest untuk Wedding Ini</button></div>
  <div style="margin:14px 0"><button type="button" id="ktLegacyToggle" aria-expanded="false" aria-controls="ktLegacyEventData" onclick="ktToggleLegacyEventData()">▸ Tampilkan Data Event Sebelumnya</button><p class="muted" style="font-size:12px;margin:8px 0">Data event sebelumnya disembunyikan agar dashboard lebih rapi. Tidak ada data yang dihapus.</p></div>
  <div id="ktLegacyEventData" class="hidden">
- <div class="notice">Data tamu dan denah di bawah ini masih menggunakan database lama bersama. Jangan gunakan untuk event baru sampai pemisahan per event selesai.</div>
+ <div class="notice">Daftar tamu dan denah di bawah mengikuti wedding yang dipilih di atas.</div>
  <div class="metrics"><div class="metric"><small>Total undangan</small><strong id="adminTotal">0</strong></div><div class="metric"><small>Sudah check-in</small><strong id="adminChecked">0</strong></div><div class="metric"><small>Pax hadir aktual</small><strong id="adminPax">0</strong></div></div>
  <div class="admin-actions"><button class="primary" onclick="openEventSettings()">⚙ Pengaturan Acara</button><button onclick="adminShowGuests()">Daftar Tamu Online</button><button id="adminExportButton" onclick="adminExportGuests()">⬇ Export Daftar Tamu (CSV)</button><button onclick="adminOpenNewGuest()">+ Tambah Tamu</button><button onclick="ktOpenExcelImport()">📄 Import Excel</button><button onclick="adminOpenLayout()">Edit Denah Online</button><button onclick="adminBackToStaff()">Kembali ke Staff</button></div>
  <div id="adminNewGuest" class="admin-editor hidden">
@@ -971,7 +983,7 @@ async function ktRefreshSession(restore=false){
   staffToken=j.access_token;
   ktSaveSession(j);
   if(restore){
-   await loadStaffGuests();
+   ktAdminRole=await ktGetAdminRole(staffToken);if(!ktAdminRole){await ktResolveStaffEvent();await loadStaffGuests();}
    document.getElementById('staff').classList.remove('hidden');
    document.getElementById('guest').classList.remove('hidden');
    previewNotice.classList.add('hidden');renderGuest();
@@ -1009,12 +1021,48 @@ openEventSettings=async function(){if(!staffToken){openStaffLogin();return;}if(!
 const ktOriginalSaveEventSettings=saveEventSettings;
 saveEventSettings=async function(){if(!ktAdminRole){alert('Hanya Admin yang boleh publish pengaturan acara.');return;}await ktOriginalSaveEventSettings();};
 </script><script>
+// Multi-event safety: admin chooses a wedding, staff follows their assignment.
+const KT_LEGACY_EVENT_ID='14abdae9-3352-4727-ac3a-c9db54cf45cc';
+let ktEventRegistry=[],ktSelectedEventId='',ktStaffEventReady=false;
+const ktIsUUID=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v||'');
+function ktPublicEventId(){const fromUrl=new URLSearchParams(location.search).get('event');return ktIsUUID(fromUrl)?fromUrl:(staffToken?ktSelectedEventId:'');}
+function ktRequireEvent(){if(!ktIsUUID(ktSelectedEventId))throw Error('Pilih wedding aktif dahulu agar data tidak tercampur.');return ktSelectedEventId;}
+function ktPopulateActiveEvents(){
+ const select=document.getElementById('ktAdminActiveEvent');if(!select)return;
+ select.replaceChildren(new Option('Pilih wedding dahulu',''));
+ for(const e of ktEventRegistry)select.add(new Option((e.event_name||e.couple_name||'Event')+' — '+(e.event_date||''),e.id));
+ select.value=ktSelectedEventId;
+}
+async function ktSelectAdminEvent(id){
+ if(!ktAdminRole||!ktEventRegistry.some(e=>e.id===id)){ktSelectedEventId='';return;}
+ ktSelectedEventId=id;const status=document.getElementById('ktActiveEventStatus');status.textContent='Memuat wedding terpilih…';
+ staffGuests=[];objects=[];published=[];selected=-1;history=[];renderLiveStaff();
+ document.getElementById('adminGuestManager').classList.add('hidden');
+ document.getElementById('adminGuestEditor').classList.add('hidden');
+ try{await loadStaffGuests();await ktLoadLayoutDraft();await ktLoadPublishedLayout();await loadPublishedEventSettings();
+  adminRenderSummary();adminRenderGuests();status.textContent='Wedding aktif: '+ktEventRegistry.find(e=>e.id===id).event_name+'. '+staffGuests.length+' undangan. Data wedding lain tidak ditampilkan.';
+ }catch(e){status.textContent='Gagal memuat wedding: '+e.message;}
+}
+function ktCopyGuestLink(){
+ const id=ktRequireEvent(),url=new URL(location.href);url.searchParams.set('event',id);
+ navigator.clipboard.writeText(url.toString()).then(()=>alert('Link guest wedding disalin. Untuk event baru, pencarian tamu belum diaktifkan sampai Edge Function diperbarui.')).catch(()=>prompt('Salin link:',url.toString()));
+}
+async function ktResolveStaffEvent(){
+ const r=await fetch(SB_URL+'/auth/v1/user',{headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken}});
+ if(!r.ok)throw Error('Tidak dapat membaca identitas Staff.');
+ const user=await r.json();if(!ktIsUUID(user.id))throw Error('User ID tidak valid.');
+ const rows=await sbStaff('kt_staff_active_event?select=event_id&staff_user_id=eq.'+encodeURIComponent(user.id));
+ if(!rows.length||!ktIsUUID(rows[0].event_id))throw Error('Belum ada wedding ditugaskan. Hubungi Admin.');
+ ktSelectedEventId=rows[0].event_id;ktStaffEventReady=true;
+}
+</script>
+<script>
 // Load shared event heading after the Supabase constants and functions exist.
 loadPublishedEventSettings();
 ktRefreshSession(true);
 </script><script>
 // Online layout: only table positions are published; approved navigation anchors remain fixed.
-const KT_LAYOUT_TABLE='kt_seating_layouts?id=eq.1';
+const KT_LAYOUT_TABLE='kt_seating_layouts';
 function ktLayoutPayload(){return objects.map(o=>({...o}));}
 function ktApplyPublishedLayout(rows){
  const value=rows?.[0]?.published_layout;
@@ -1022,8 +1070,9 @@ function ktApplyPublishedLayout(rows){
  published=value.filter(o=>o&&typeof o.id==='string'&&['table','facility'].includes(o.kind)&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>({...o}));
 }
 async function ktLoadPublishedLayout(){
+ if(!ktPublicEventId())return;
  try{
-  const r=await fetch(SB_URL+'/rest/v1/kt_published_layout?select=published_layout&id=eq.1',{headers:{apikey:SB_KEY},cache:'no-store'});
+  const r=await fetch(SB_URL+(ktPublicEventId()===KT_LEGACY_EVENT_ID?'/rest/v1/kt_published_layout?select=published_layout&id=eq.1':'/rest/v1/kt_seating_layouts?select=published_layout&event_id=eq.'+encodeURIComponent(ktPublicEventId())),{headers:{apikey:SB_KEY},cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   ktApplyPublishedLayout(await r.json());
   const view=document.getElementById('viewmap');
@@ -1039,7 +1088,7 @@ async function ktLoadPublishedLayout(){
 async function ktLoadLayoutDraft(){
  if(!staffToken||!ktAdminRole)return;
  try{
-  const rows=await sbStaff(KT_LAYOUT_TABLE+'&select=draft_layout,published_layout');
+  const rows=await sbStaff(KT_LAYOUT_TABLE+'?select=draft_layout,published_layout&event_id=eq.'+encodeURIComponent(ktRequireEvent()));
   if(rows?.[0]?.draft_layout&&Array.isArray(rows[0].draft_layout)){
    const saved=rows[0].draft_layout;
    objects=saved.filter(o=>o&&typeof o.id==='string'&&['table','facility'].includes(o.kind)&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>({...o}));
@@ -1052,7 +1101,8 @@ async function ktWriteLayout(field){
  if(!staffToken||!ktAdminRole){alert('Hanya Admin yang boleh menyimpan denah.');return false;}
  const data={};data[field]=ktLayoutPayload();
  try{
-  const rows=await sbStaff(KT_LAYOUT_TABLE,{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(data)});
+  const eventId=ktRequireEvent();const existing=await sbStaff(KT_LAYOUT_TABLE+'?select=id&event_id=eq.'+encodeURIComponent(eventId));
+  const rows=await sbStaff(existing.length?KT_LAYOUT_TABLE+'?event_id=eq.'+encodeURIComponent(eventId):KT_LAYOUT_TABLE,{method:existing.length?'PATCH':'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(existing.length?data:{...data,event_id:eventId})});
   if(!Array.isArray(rows)||rows.length!==1)throw Error('Tidak ada baris yang diperbarui.');
   return true;
  }catch(e){alert('Gagal menyimpan denah online: '+e.message);return false;}
@@ -1100,7 +1150,8 @@ async function ktFetchEvents(){
   const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Pilih wedding';chooser.append(placeholder);
   for(const e of rows){const option=document.createElement('option');option.value=e.id;option.textContent=(e.event_name||e.couple_name||'Event')+(e.event_date?' — '+e.event_date:'');chooser.append(option);}
   if(rows.some(e=>e.id===previous))chooser.value=previous;
-  status.textContent=rows.length+' event terdaftar. Penugasan Staff tersedia; data tamu dan denah event baru belum dipisahkan.';
+  ktEventRegistry=rows;ktPopulateActiveEvents();
+  status.textContent=rows.length+' event terdaftar. Penugasan Staff tersedia. Pilih wedding aktif untuk mengelola data per event.';
  }catch(err){status.textContent='Gagal memuat event: '+err.message;}
 }
 async function ktCreateEvent(){
