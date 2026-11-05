@@ -629,10 +629,10 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <h2>Tambah Staff Baru — Username</h2>
  <p class="muted">Tidak memerlukan email. Buat username unik dan password berbeda untuk setiap Staff. Password tidak disimpan atau ditampilkan kembali oleh aplikasi.</p>
  <div class="two"><div><label for="ktInviteName">Nama Staff</label><input id="ktInviteName" maxlength="120" autocomplete="off" placeholder="Nama lengkap"></div><div><label for="ktInviteUsername">Username</label><input id="ktInviteUsername" maxlength="32" autocomplete="off" autocapitalize="none" placeholder="contoh: fery"></div></div>
- <label for="ktInvitePassword">Password Staff (minimal 12 karakter)</label><div class="kt-password-wrap"><input id="ktInvitePassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" placeholder="Password unik untuk Staff"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktInvitePassword',this)">👁 Lihat</button></div>
+ <label for="ktInvitePassword">Password Staff (minimal 8 karakter)</label><div class="kt-password-wrap"><input id="ktInvitePassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Password unik untuk Staff"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktInvitePassword',this)">👁 Lihat</button></div>
  <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktInviteButton" onclick="ktCreateUsernameStaff()">+ Buat Akun Staff</button></div>
  <p id="ktInviteStatus" class="muted" role="status">Memerlukan Edge Function kt-manage-staff yang sudah di-deploy. Jangan gunakan sebelum backend siap.</p>
- <details style="margin-top:15px"><summary style="cursor:pointer">Reset Password Staff</summary><p class="muted">Admin dapat mengganti password Staff yang sudah ada. Gunakan password berbeda untuk setiap Staff.</p><label for="ktResetUsername">Username Staff</label><input id="ktResetUsername" autocomplete="off" placeholder="fery"><label for="ktResetPassword">Password Baru (minimal 12 karakter)</label><div class="kt-password-wrap"><input id="ktResetPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktResetPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button type="button" onclick="ktResetUsernamePassword()">Reset Password</button></div><p id="ktResetStatus" class="muted" role="status"></p></details>
+ <details style="margin-top:15px"><summary style="cursor:pointer">Reset Password Staff</summary><p class="muted">Admin dapat mengganti password Staff yang sudah ada. Gunakan password berbeda untuk setiap Staff.</p><label for="ktResetUsername">Username Staff</label><input id="ktResetUsername" autocomplete="off" placeholder="fery"><label for="ktResetPassword">Password Baru (minimal 8 karakter)</label><div class="kt-password-wrap"><input id="ktResetPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"><button type="button" class="kt-password-toggle" onclick="ktTogglePassword('ktResetPassword',this)">👁 Lihat</button></div><div class="toolbar" style="margin-top:12px"><button type="button" onclick="ktResetUsernamePassword()">Reset Password</button></div><p id="ktResetStatus" class="muted" role="status"></p></details>
  </div>
  <h2>Penugasan Wedding Aktif untuk Staff</h2>
  <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
@@ -1131,7 +1131,7 @@ async function ktManageStaffRequest(action,username,password,name){
 async function ktCreateUsernameStaff(){
  const status=document.getElementById('ktInviteStatus'),button=document.getElementById('ktInviteButton');
  const name=document.getElementById('ktInviteName').value.trim(),username=document.getElementById('ktInviteUsername').value.trim().toLowerCase(),password=document.getElementById('ktInvitePassword').value;
- if(name.length<2||!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<12){status.textContent='Isi nama, username 3–32 karakter, dan password minimal 12 karakter.';return;}
+ if(name.length<2||!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<8){status.textContent='Isi nama, username 3–32 karakter, dan password minimal 8 karakter.';return;}
  if(!confirm('Buat akun Staff dengan username '+username+'? Pastikan password sudah dicatat secara aman oleh Admin.'))return;
  button.disabled=true;status.textContent='Membuat akun…';
  try{const result=await ktManageStaffRequest('create',username,password,name);status.textContent=result.message||'Akun Staff berhasil dibuat.';document.getElementById('ktAssignStaffId').value=username;document.getElementById('ktInvitePassword').value='';}
@@ -1140,7 +1140,7 @@ async function ktCreateUsernameStaff(){
 }
 async function ktResetUsernamePassword(){
  const status=document.getElementById('ktResetStatus'),username=document.getElementById('ktResetUsername').value.trim().toLowerCase(),password=document.getElementById('ktResetPassword').value;
- if(!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<12){status.textContent='Isi username dan password baru minimal 12 karakter.';return;}
+ if(!/^[a-z][a-z0-9._-]{2,31}$/.test(username)||password.length<8){status.textContent='Isi username dan password baru minimal 8 karakter.';return;}
  if(!confirm('Ganti password untuk '+username+'? Password sebelumnya tidak dapat dipakai lagi untuk login baru.'))return;
  status.textContent='Memproses reset…';
  try{const result=await ktManageStaffRequest('reset',username,password,'');status.textContent=result.message||'Password berhasil diganti.';document.getElementById('ktResetPassword').value='';}
