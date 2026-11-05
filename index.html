@@ -623,12 +623,19 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <div class="toolbar" style="margin-top:12px"><button id="ktCreateEventButton" type="button" class="primary" onclick="ktCreateEvent()">Simpan Event</button><button type="button" onclick="document.getElementById('ktEventCreateForm').classList.add('hidden')">Batal</button></div></div>
  <p id="ktEventStatus" class="muted" role="status">Klik Refresh Daftar Event untuk melihat event.</p><div id="ktEventList"></div>
  <div style="border-top:1px solid #e7ddd1;margin-top:18px;padding-top:16px">
+ <div style="border-bottom:1px solid #e7ddd1;margin-bottom:18px;padding-bottom:18px">
+ <h2>Tambah Staff Baru</h2>
+ <p class="muted">Admin mengirim undangan ke email Staff baru. Staff membuat password melalui tautan email. Email yang sudah terdaftar dapat langsung dipakai pada bagian Penugasan di bawah.</p>
+ <div class="two"><div><label for="ktInviteName">Nama Staff</label><input id="ktInviteName" maxlength="120" autocomplete="name" placeholder="Nama lengkap"></div><div><label for="ktInviteEmail">Email Staff Baru</label><input id="ktInviteEmail" type="email" maxlength="254" autocomplete="off" placeholder="nama@email.com"></div></div>
+ <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktInviteButton" onclick="ktInviteStaff()">+ Kirim Undangan Staff</button></div>
+ <p id="ktInviteStatus" class="muted" role="status">Fitur ini memerlukan Edge Function kt-invite-staff yang sudah di-deploy di Supabase.</p>
+ </div>
  <h2>Penugasan Wedding Aktif untuk Staff</h2>
  <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
  <div class="two"><div><label for="ktAssignStaffId">Email Staff terdaftar</label><input id="ktAssignStaffId" placeholder="nama@email.com" type="email" autocomplete="off"></div>
  <div><label for="ktAssignEventId">Wedding yang ditugaskan</label><select id="ktAssignEventId"><option value="">Refresh daftar event dahulu</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktAssignButton" onclick="ktAssignStaffActiveEvent()">Simpan Penugasan</button><button type="button" onclick="ktReadStaffAssignment()">Periksa Penugasan Staff</button></div>
- <p id="ktAssignStatus" class="muted" role="status">Masukkan User ID Staff, lalu pilih wedding.</p>
+ <p id="ktAssignStatus" class="muted" role="status">Masukkan email Staff terdaftar, lalu pilih wedding.</p>
  </div></div>
  <div style="margin:14px 0"><button type="button" id="ktLegacyToggle" aria-expanded="false" aria-controls="ktLegacyEventData" onclick="ktToggleLegacyEventData()">▸ Tampilkan Data Event Sebelumnya</button><p class="muted" style="font-size:12px;margin:8px 0">Data event sebelumnya disembunyikan agar dashboard lebih rapi. Tidak ada data yang dihapus.</p></div>
  <div id="ktLegacyEventData" class="hidden">
@@ -1110,6 +1117,29 @@ async function ktCreateEvent(){
  }catch(err){status.textContent='Gagal membuat event: '+err.message;}
  finally{button.disabled=false;}
 }
+async function ktInviteStaff(){
+ const status=document.getElementById('ktInviteStatus'),button=document.getElementById('ktInviteButton');
+ if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin terlebih dahulu.';return;}
+ const name=document.getElementById('ktInviteName').value.trim();
+ const email=document.getElementById('ktInviteEmail').value.trim().toLowerCase();
+ if(name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+  status.textContent='Isi nama Staff dan alamat email yang valid.';return;
+ }
+ if(!confirm('Kirim undangan Staff baru ke '+email+'?'))return;
+ button.disabled=true;status.textContent='Mengirim undangan…';
+ try{
+  const response=await fetch(SB_URL+'/functions/v1/kt-invite-staff',{
+   method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+staffToken,'Content-Type':'application/json'},
+   body:JSON.stringify({name,email})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'HTTP '+response.status+'. Pastikan Edge Function sudah di-deploy.');
+  status.textContent=result.message||'Undangan diproses. Staff perlu mengaktifkan akun dari email.';
+  document.getElementById('ktAssignStaffId').value=email;
+  document.getElementById('ktInviteName').value='';document.getElementById('ktInviteEmail').value='';
+ }catch(e){status.textContent='Gagal mengirim undangan: '+e.message;}
+ finally{button.disabled=false;}
+}
 // Admin-only assignment. The RLS policy on kt_staff_active_event is the authority.
 async function ktStaffUUID(){
  const email=document.getElementById('ktAssignStaffId').value.trim().toLowerCase();
@@ -1126,7 +1156,7 @@ async function ktReadStaffAssignment(){
  if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin dahulu.';return;}
  try{
   const id=await ktStaffUUID();
-  const rows=await sbStaff('kt_staff_active_event?select=staff_user_id,event_id,updated_at&staff_user_id=eq.'+encodeURIComponent(id));
+  const rows=await sbStaff('kt_staff_active_event?select=staff_user_id,event_id&staff_user_id=eq.'+encodeURIComponent(id));
   if(!rows.length){status.textContent='Email Staff ini belum memiliki penugasan aktif.';return;}
   const chooser=document.getElementById('ktAssignEventId');chooser.value=rows[0].event_id;
   const selected=chooser.selectedOptions[0];
