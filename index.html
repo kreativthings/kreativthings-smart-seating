@@ -625,7 +625,7 @@ body.kt-admin-layout #staffPortal{display:none!important}
  <div style="border-top:1px solid #e7ddd1;margin-top:18px;padding-top:16px">
  <h2>Penugasan Wedding Aktif untuk Staff</h2>
  <p class="muted">Admin memilih satu event aktif per akun Staff. Penugasan ini belum memindahkan daftar tamu atau denah; fitur check-in event baru menunggu pemisahan database.</p>
- <div class="two"><div><label for="ktAssignStaffId">Staff User ID (UUID dari Supabase Authentication)</label><input id="ktAssignStaffId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off"></div>
+ <div class="two"><div><label for="ktAssignStaffId">Email Staff terdaftar</label><input id="ktAssignStaffId" placeholder="nama@email.com" type="email" autocomplete="off"></div>
  <div><label for="ktAssignEventId">Wedding yang ditugaskan</label><select id="ktAssignEventId"><option value="">Refresh daftar event dahulu</option></select></div></div>
  <div class="toolbar" style="margin-top:12px"><button type="button" class="primary" id="ktAssignButton" onclick="ktAssignStaffActiveEvent()">Simpan Penugasan</button><button type="button" onclick="ktReadStaffAssignment()">Periksa Penugasan Staff</button></div>
  <p id="ktAssignStatus" class="muted" role="status">Masukkan User ID Staff, lalu pilih wedding.</p>
@@ -1111,18 +1111,23 @@ async function ktCreateEvent(){
  finally{button.disabled=false;}
 }
 // Admin-only assignment. The RLS policy on kt_staff_active_event is the authority.
-function ktStaffUUID(){
- const id=document.getElementById('ktAssignStaffId').value.trim();
- if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw Error('Staff User ID harus UUID lengkap dari Supabase Authentication.');
- return id;
+async function ktStaffUUID(){
+ const email=document.getElementById('ktAssignStaffId').value.trim().toLowerCase();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Masukkan alamat email Staff yang valid.');
+ const rows=await sbStaff('rpc/kt_lookup_staff_by_email',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_email:email})
+ });
+ if(!Array.isArray(rows)||rows.length!==1||!rows[0].staff_user_id)
+  throw Error('Email belum terdaftar sebagai Staff. Undang dan aktifkan akun terlebih dahulu.');
+ return rows[0].staff_user_id;
 }
 async function ktReadStaffAssignment(){
  const status=document.getElementById('ktAssignStatus');
  if(!staffToken||!ktAdminRole){status.textContent='Login sebagai Admin dahulu.';return;}
  try{
-  const id=ktStaffUUID();
+  const id=await ktStaffUUID();
   const rows=await sbStaff('kt_staff_active_event?select=staff_user_id,event_id,updated_at&staff_user_id=eq.'+encodeURIComponent(id));
-  if(!rows.length){status.textContent='Staff ini belum memiliki penugasan aktif.';return;}
+  if(!rows.length){status.textContent='Email Staff ini belum memiliki penugasan aktif.';return;}
   const chooser=document.getElementById('ktAssignEventId');chooser.value=rows[0].event_id;
   const selected=chooser.selectedOptions[0];
   status.textContent='Penugasan saat ini: '+(selected&&selected.value?selected.textContent:rows[0].event_id)+'.';
@@ -1131,11 +1136,11 @@ async function ktReadStaffAssignment(){
 async function ktAssignStaffActiveEvent(){
  const status=document.getElementById('ktAssignStatus'),button=document.getElementById('ktAssignButton');
  if(!staffToken||!ktAdminRole){status.textContent='Hanya Admin yang dapat menugaskan Staff.';return;}
- let id;try{id=ktStaffUUID();}catch(e){status.textContent=e.message;return;}
+ let id;try{id=await ktStaffUUID();}catch(e){status.textContent=e.message;return;}
  const eventId=document.getElementById('ktAssignEventId').value;
  if(!eventId){status.textContent='Pilih wedding terlebih dahulu.';return;}
  const label=document.getElementById('ktAssignEventId').selectedOptions[0].textContent;
- if(!confirm('Tugaskan Staff '+id+' ke '+label+'?\n\nIni hanya menyimpan penugasan, BELUM mengganti data tamu/denah yang digunakan aplikasi.'))return;
+ if(!confirm('Tugaskan Staff '+document.getElementById('ktAssignStaffId').value.trim()+' ke '+label+'?\n\nIni hanya menyimpan penugasan, BELUM mengganti data tamu/denah yang digunakan aplikasi.'))return;
  button.disabled=true;status.textContent='Menyimpan penugasan…';
  try{
   // Read first to avoid relying on an unverified ON CONFLICT constraint.
